@@ -8,7 +8,9 @@ import {
   Trash2,
   Calendar,
   Play,
-  RotateCcw
+  RotateCcw,
+  Sparkles,
+  AlertTriangle
 } from 'lucide-react';
 import { soundFX, SpeechService } from '../utils/audioEngine';
 
@@ -40,7 +42,7 @@ export const VoiceReminders: React.FC = () => {
   const [newMinutesOffset, setNewMinutesOffset] = useState<number>(5);
   const [newCategory, setNewCategory] = useState<'Work' | 'Meeting' | 'Health' | 'Personal'>('Work');
   const [newPriority, setNewPriority] = useState<'High' | 'Normal' | 'Urgent'>('High');
-  const [newLang, setNewLang] = useState('bn-BD');
+  const [newLang, setNewLang] = useState('en-US');
   const [activeVoiceAlert, setActiveVoiceAlert] = useState<string | null>(null);
 
   // Sync to localStorage
@@ -52,7 +54,7 @@ export const VoiceReminders: React.FC = () => {
     }
   }, [tasks]);
 
-  // Background ticker checking for reminders every 5 seconds
+  // Background ticker checking for reminders every 4 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
@@ -77,10 +79,10 @@ export const VoiceReminders: React.FC = () => {
     soundFX.playReminderAlert();
     setActiveVoiceAlert(task.title);
 
-    const message = task.voiceAnnouncement || `বস! আপনার কাজ: ${task.title} করার সময় হয়েছে!`;
+    const message = task.voiceAnnouncement || `Attention! It is time for your task: ${task.title}!`;
 
     SpeechService.speak(message, {
-      lang: task.language,
+      lang: task.language || 'en-US',
       rate: 1.0,
       pitch: 1.05,
       onEnd: () => {
@@ -93,7 +95,7 @@ export const VoiceReminders: React.FC = () => {
     soundFX.unlock();
     soundFX.playClick();
     SpeechService.speak(text, {
-      lang,
+      lang: lang || 'en-US',
       rate: 1.0,
       pitch: 1.05,
     });
@@ -111,9 +113,7 @@ export const VoiceReminders: React.FC = () => {
       scheduledTime: targetDate.toISOString(),
       voiceAnnouncement:
         newAnnouncement.trim() ||
-        (newLang.startsWith('bn')
-          ? `বস, আপনার কাজ: ${newTitle.trim()} করার সময় হয়েছে!`
-          : `Boss, time for your task: ${newTitle.trim()}!`),
+        `Boss, it is time for your task: ${newTitle.trim()}!`,
       category: newCategory,
       priority: newPriority,
       completed: false,
@@ -121,154 +121,148 @@ export const VoiceReminders: React.FC = () => {
       language: newLang,
     };
 
-    setTasks([newTask, ...tasks]);
+    setTasks((prev) => [newTask, ...prev]);
     setNewTitle('');
     setNewAnnouncement('');
   };
 
-  const toggleComplete = (id: string) => {
+  const toggleTaskCompleted = (id: string) => {
     soundFX.playClick();
-    setTasks(tasks.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t)));
+    setTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t))
+    );
   };
 
   const deleteTask = (id: string) => {
     soundFX.playClick();
-    setTasks(tasks.filter((t) => t.id !== id));
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  const clearAllTasks = () => {
+    soundFX.playClick();
+    setTasks([]);
+    localStorage.removeItem('nova_user_tasks');
   };
 
   return (
     <div className="space-y-6">
-      {/* Active Voice Alert Banner */}
+      {/* Top Banner Alert when Task Fires */}
       {activeVoiceAlert && (
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-cyan-500/20 via-purple-500/20 to-pink-500/20 border border-cyan-500/50 flex items-center justify-between shadow-2xl animate-pulse">
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 text-white font-bold flex items-center justify-between shadow-2xl animate-bounce">
           <div className="flex items-center gap-3">
-            <Volume2 className="text-cyan-400 animate-bounce" size={24} />
+            <Volume2 size={24} className="animate-pulse" />
             <div>
-              <span className="text-xs uppercase font-mono tracking-wider text-cyan-300 font-bold block">
-                VOICE REMINDER BROADCASTING NOW
+              <span className="text-xs uppercase tracking-widest text-purple-200 block">
+                Voice Reminder Alarm
               </span>
-              <p className="text-sm font-semibold text-white">{activeVoiceAlert}</p>
+              <span className="text-sm md:text-base">{activeVoiceAlert}</span>
             </div>
           </div>
           <button
-            onClick={() => SpeechService.stop()}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-neutral-900/80 hover:bg-neutral-800 text-neutral-300 border border-neutral-700"
+            onClick={() => {
+              SpeechService.stop();
+              setActiveVoiceAlert(null);
+            }}
+            className="px-4 py-1.5 rounded-xl bg-black/40 hover:bg-black/60 text-xs font-semibold backdrop-blur-md"
           >
-            Mute Voice
+            Dismiss
           </button>
         </div>
       )}
 
-      {/* Header Info */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl border border-neutral-800 bg-neutral-900/60 backdrop-blur-md">
+      {/* Header */}
+      <div className="p-5 rounded-2xl border border-neutral-800 bg-neutral-900/60 backdrop-blur-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400">
             <Bell size={22} />
           </div>
           <div>
-            <h3 className="font-bold text-lg text-white">Voice Reminders & Task Engine</h3>
+            <h3 className="font-bold text-lg text-white">Voice Task Reminders</h3>
             <p className="text-xs text-neutral-400">
-              নির্ধারিত সময়ে NOVA স্বয়ংক্রিয়ভাবে কথা বলে আপনাকে প্রয়োজনীয় কাজ মনে করিয়ে দেবে।
+              Schedule your daily tasks and meetings. NOVA will vocalize reminders out loud when each deadline arrives.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-xs font-mono text-neutral-400">
-          <Clock size={14} className="text-cyan-400" />
-          <span>Active Watcher: 24/7 Monitoring</span>
-        </div>
+        {tasks.length > 0 && (
+          <button
+            onClick={clearAllTasks}
+            className="text-xs text-neutral-400 hover:text-rose-400 flex items-center gap-1 transition-colors self-start sm:self-auto"
+          >
+            <Trash2 size={13} />
+            <span>Clear All</span>
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Form: Add New Task & Voice Reminder */}
+        {/* Left (5 cols): Add New Reminder Form */}
         <div className="lg:col-span-5 p-5 rounded-2xl border border-neutral-800 bg-neutral-900/50 space-y-4">
           <h4 className="text-sm font-semibold text-white flex items-center gap-2">
-            <Plus size={16} className="text-cyan-400" />
-            নতুন ভয়েস রিমাইন্ডার তৈরি করুন (Set Reminder)
+            <Plus size={16} className="text-purple-400" />
+            Schedule New Voice Reminder
           </h4>
 
-          <form onSubmit={handleAddTask} className="space-y-4">
+          <form onSubmit={handleAddTask} className="space-y-3.5">
             <div>
-              <label className="text-xs text-neutral-300 font-medium block mb-1">
-                কাজের নাম (Task Title) *
-              </label>
+              <label className="text-xs text-neutral-400 block mb-1">Task Title</label>
               <input
                 type="text"
-                required
                 value={newTitle}
-                onChange={(e) => {
-                  setNewTitle(e.target.value);
-                  if (!newAnnouncement) {
-                    setNewAnnouncement(
-                      newLang.startsWith('bn')
-                        ? `বস, আপনার কাজ: ${e.target.value} করার সময় হয়েছে!`
-                        : `Boss, time for: ${e.target.value}!`
-                    );
-                  }
-                }}
-                placeholder="যেমন: মিটিংয়ে যোগ দেওয়া, ওষুধ খাওয়া, ইত্যাদি"
-                className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-neutral-950/80 border border-neutral-800 text-neutral-200 focus:outline-none focus:border-cyan-500/50"
+                onChange={(e) => setNewTitle(e.target.value)}
+                placeholder="e.g. Client Zoom Meeting, Drink Water, Submit Project"
+                className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:border-purple-500"
+                required
               />
             </div>
 
             <div>
-              <label className="text-xs text-neutral-300 font-medium block mb-1">
-                ভয়েস ঘোষণা বার্তা (Voice Message to Speak)
+              <label className="text-xs text-neutral-400 block mb-1">
+                Voice Announcement (What NOVA should speak out loud)
               </label>
-              <input
-                type="text"
+              <textarea
                 value={newAnnouncement}
                 onChange={(e) => setNewAnnouncement(e.target.value)}
-                placeholder="NOVA voice এ যা বলবে..."
-                className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-neutral-950/80 border border-neutral-800 text-neutral-200 focus:outline-none focus:border-cyan-500/50"
+                rows={2}
+                placeholder="e.g. Boss! Your meeting starts right now, please join the call."
+                className="w-full p-3 text-xs rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:border-purple-500 resize-none"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-neutral-300 font-medium block mb-1">
-                  কতক্ষণ পর (Time Offset)
-                </label>
-                <select
-                  value={newMinutesOffset}
-                  onChange={(e) => setNewMinutesOffset(Number(e.target.value))}
-                  className="w-full px-3 py-2 text-xs rounded-xl bg-neutral-950/80 border border-neutral-800 text-neutral-200 focus:outline-none focus:border-cyan-500/50"
-                >
-                  <option value={1}>১ মিনিট পর (1 min)</option>
-                  <option value={5}>৫ মিনিট পর (5 mins)</option>
-                  <option value={15}>১৫ মিনিট পর (15 mins)</option>
-                  <option value={30}>৩০ মিনিট পর (30 mins)</option>
-                  <option value={60}>১ ঘণ্টা পর (1 hour)</option>
-                  <option value={180}>৩ ঘণ্টা পর (3 hours)</option>
-                  <option value={1440}>২৪ ঘণ্টা পর (Tomorrow)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs text-neutral-300 font-medium block mb-1">
-                  ভাষা (Voice Language)
-                </label>
-                <select
-                  value={newLang}
-                  onChange={(e) => setNewLang(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl bg-neutral-950/80 border border-neutral-800 text-neutral-200 focus:outline-none focus:border-cyan-500/50"
-                >
-                  <option value="bn-BD">বাংলা (Bengali)</option>
-                  <option value="en-US">English (US)</option>
-                  <option value="hi-IN">हिंदी (Hindi)</option>
-                </select>
+            {/* Quick Time Offsets */}
+            <div>
+              <label className="text-xs text-neutral-400 block mb-1.5">Remind Me In:</label>
+              <div className="grid grid-cols-4 gap-2 text-xs">
+                {[
+                  { label: '2 mins', val: 2 },
+                  { label: '5 mins', val: 5 },
+                  { label: '15 mins', val: 15 },
+                  { label: '1 hour', val: 60 },
+                ].map((item) => (
+                  <button
+                    key={item.val}
+                    type="button"
+                    onClick={() => setNewMinutesOffset(item.val)}
+                    className={`py-2 rounded-xl font-medium transition-colors border ${
+                      newMinutesOffset === item.val
+                        ? 'bg-purple-500 text-white border-purple-500 font-bold'
+                        : 'bg-neutral-950 text-neutral-300 border-neutral-800 hover:border-neutral-700'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
               </div>
             </div>
 
+            {/* Category & Priority */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-neutral-300 font-medium block mb-1">
-                  ক্যাটাগরি (Category)
-                </label>
+                <label className="text-xs text-neutral-400 block mb-1">Category</label>
                 <select
                   value={newCategory}
                   onChange={(e) => setNewCategory(e.target.value as any)}
-                  className="w-full px-3 py-2 text-xs rounded-xl bg-neutral-950/80 border border-neutral-800 text-neutral-200 focus:outline-none focus:border-cyan-500/50"
+                  className="w-full px-3 py-2 text-xs rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:border-purple-500"
                 >
                   <option value="Work">Work</option>
                   <option value="Meeting">Meeting</option>
@@ -278,133 +272,157 @@ export const VoiceReminders: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs text-neutral-300 font-medium block mb-1">
-                  অগ্রাধিকার (Priority)
-                </label>
+                <label className="text-xs text-neutral-400 block mb-1">Priority</label>
                 <select
                   value={newPriority}
                   onChange={(e) => setNewPriority(e.target.value as any)}
-                  className="w-full px-3 py-2 text-xs rounded-xl bg-neutral-950/80 border border-neutral-800 text-neutral-200 focus:outline-none focus:border-cyan-500/50"
+                  className="w-full px-3 py-2 text-xs rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:border-purple-500"
                 >
-                  <option value="Urgent">Urgent</option>
                   <option value="High">High</option>
+                  <option value="Urgent">Urgent</option>
                   <option value="Normal">Normal</option>
                 </select>
               </div>
             </div>
 
+            {/* Voice Language */}
+            <div>
+              <label className="text-xs text-neutral-400 block mb-1">Voice Language</label>
+              <select
+                value={newLang}
+                onChange={(e) => setNewLang(e.target.value)}
+                className="w-full px-3 py-2 text-xs rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:border-purple-500"
+              >
+                <option value="en-US">English (US)</option>
+                <option value="bn-BD">বাংলা (Bengali)</option>
+                <option value="hi-IN">हिन्दी (Hindi)</option>
+                <option value="es-ES">Español (Spanish)</option>
+              </select>
+            </div>
+
             <button
               type="submit"
-              className="w-full py-2.5 rounded-xl text-xs font-semibold bg-cyan-500 hover:bg-cyan-400 text-neutral-950 transition-colors shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 font-bold"
+              className="w-full py-2.5 rounded-xl text-xs font-bold bg-purple-500 hover:bg-purple-400 text-white transition-colors flex items-center justify-center gap-2 shadow-md shadow-purple-500/20"
             >
-              <Plus size={15} />
-              <span>রিমাইন্ডার সেট করুন (Set Voice Reminder)</span>
+              <Clock size={15} />
+              <span>Set Voice Reminder</span>
             </button>
           </form>
         </div>
 
-        {/* Right List: Scheduled Reminders */}
+        {/* Right (7 cols): Active Reminders List */}
         <div className="lg:col-span-7 p-5 rounded-2xl border border-neutral-800 bg-neutral-900/50 space-y-4">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-semibold text-white flex items-center gap-2">
               <Calendar size={16} className="text-purple-400" />
-              আপনার তালিকাভুক্ত কাজ ও রিমাইন্ডার (Scheduled Reminders)
+              Active Reminders & Schedules
             </h4>
-            <span className="text-xs text-neutral-400 font-mono">
-              Total: {tasks.length}
+            <span className="text-xs font-mono text-neutral-400">
+              {tasks.length} total
             </span>
           </div>
 
           {tasks.length === 0 ? (
-            <div className="py-16 text-center text-neutral-500 space-y-2">
-              <Bell size={28} className="mx-auto text-neutral-600" />
-              <p className="text-xs font-medium text-neutral-400">
-                কোনো রিমাইন্ডার সেট করা নেই (No Demo Data)
+            <div className="py-20 text-center text-neutral-500 space-y-2 border border-dashed border-neutral-800 rounded-xl">
+              <Clock size={32} className="mx-auto text-neutral-700" />
+              <p className="text-xs text-neutral-400 font-medium">
+                No reminders scheduled yet
               </p>
               <p className="text-[11px] text-neutral-500">
-                বামের ফর্ম পূরণ করে আপনার প্রয়োজনীয় কাজের জন্য ভয়েস রিমাইন্ডার যোগ করুন।
+                Create a reminder on the left and NOVA will vocalize it when the time arrives.
               </p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
               {tasks.map((task) => {
-                const diffMs = new Date(task.scheduledTime).getTime() - Date.now();
-                const isPast = diffMs <= 0;
-                const minsLeft = Math.round(diffMs / (60 * 1000));
+                const target = new Date(task.scheduledTime);
+                const isOverdue = target.getTime() < Date.now();
 
                 return (
                   <div
                     key={task.id}
                     className={`p-4 rounded-xl border transition-all ${
                       task.completed
-                        ? 'border-neutral-800 bg-neutral-950/40 opacity-60'
-                        : 'border-neutral-800/80 bg-neutral-950/70 hover:border-neutral-700'
+                        ? 'bg-neutral-950/40 border-neutral-900 opacity-60'
+                        : isOverdue
+                        ? 'bg-purple-950/20 border-purple-500/40'
+                        : 'bg-neutral-950 border-neutral-800 hover:border-neutral-700'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-3">
                         <button
-                          onClick={() => toggleComplete(task.id)}
-                          className={`mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${
+                          onClick={() => toggleTaskCompleted(task.id)}
+                          className={`mt-0.5 w-5 h-5 rounded-lg flex items-center justify-center transition-colors border ${
                             task.completed
                               ? 'bg-emerald-500 border-emerald-500 text-black'
-                              : 'border-neutral-700 hover:border-cyan-400 text-transparent'
+                              : 'border-neutral-700 hover:border-purple-400'
                           }`}
                         >
-                          <CheckCircle2 size={13} className={task.completed ? 'block' : 'hidden'} />
+                          {task.completed && <CheckCircle2 size={13} />}
                         </button>
 
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h5
-                              className={`text-sm font-semibold text-white ${
-                                task.completed ? 'line-through text-neutral-500' : ''
-                              }`}
-                            >
-                              {task.title}
-                            </h5>
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-300 font-mono">
-                              {task.category}
-                            </span>
-                            {task.priority === 'Urgent' && (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 font-mono">
-                                Urgent
-                              </span>
-                            )}
-                          </div>
+                        <div className="space-y-1">
+                          <span
+                            className={`text-xs font-semibold block ${
+                              task.completed
+                                ? 'line-through text-neutral-500'
+                                : 'text-neutral-100'
+                            }`}
+                          >
+                            {task.title}
+                          </span>
 
-                          <p className="text-xs text-neutral-400 mt-1 flex items-center gap-1.5">
-                            <Volume2 size={12} className="text-purple-400 shrink-0" />
-                            <span>"{task.voiceAnnouncement}"</span>
+                          <p className="text-[11px] text-neutral-400">
+                            {task.voiceAnnouncement}
                           </p>
 
-                          <div className="text-[11px] text-neutral-500 mt-2 font-mono flex items-center gap-3">
-                            <span>
-                              Time:{' '}
-                              {new Date(task.scheduledTime).toLocaleTimeString([], {
+                          <div className="flex flex-wrap items-center gap-2 pt-1 text-[10px] font-mono">
+                            <span className="flex items-center gap-1 text-cyan-400">
+                              <Clock size={11} />
+                              {target.toLocaleTimeString([], {
                                 hour: '2-digit',
                                 minute: '2-digit',
                               })}
                             </span>
-                            <span>•</span>
-                            <span className={isPast ? 'text-emerald-400' : 'text-cyan-400 font-bold'}>
-                              {isPast ? 'Alert Triggered' : `In ${minsLeft} minutes`}
+
+                            <span className="px-2 py-0.5 rounded-full bg-neutral-900 border border-neutral-800 text-neutral-300">
+                              {task.category}
                             </span>
+
+                            <span
+                              className={`px-2 py-0.5 rounded-full border ${
+                                task.priority === 'Urgent'
+                                  ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                                  : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                              }`}
+                            >
+                              {task.priority}
+                            </span>
+
+                            {task.notified && (
+                              <span className="text-emerald-400 font-semibold">
+                                ✓ Notified
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-1">
                         <button
-                          onClick={() => handleTestVoice(task.voiceAnnouncement, task.language)}
-                          title="ভয়েস টেস্ট শুনুন"
-                          className="p-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-neutral-300 hover:text-cyan-400 transition-colors"
+                          onClick={() =>
+                            handleTestVoice(task.voiceAnnouncement, task.language)
+                          }
+                          className="p-1.5 rounded-lg text-neutral-400 hover:text-purple-400 hover:bg-neutral-900 transition-colors"
+                          title="Preview Voice Notification"
                         >
                           <Play size={13} />
                         </button>
                         <button
                           onClick={() => deleteTask(task.id)}
-                          className="p-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-rose-400 transition-colors"
+                          className="p-1.5 rounded-lg text-neutral-400 hover:text-rose-400 hover:bg-neutral-900 transition-colors"
+                          title="Delete Reminder"
                         >
                           <Trash2 size={13} />
                         </button>

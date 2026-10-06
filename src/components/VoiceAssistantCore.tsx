@@ -41,7 +41,14 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
   externalUserMessage,
 }) => {
   // Clean state: NO demo data
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    try {
+      const saved = localStorage.getItem('nova_chat_history');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [inputText, setInputText] = useState('');
   const [autoSpeakReplies, setAutoSpeakReplies] = useState(true);
   const [voiceMode, setVoiceMode] = useState<'human' | 'browser'>('human');
@@ -54,6 +61,15 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
   });
   const [keySavedMessage, setKeySavedMessage] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  // Sync chat to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('nova_chat_history', JSON.stringify(messages));
+    } catch {
+      // ignore
+    }
+  }, [messages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -144,15 +160,10 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
       }
     } catch (err: any) {
       console.error('Chat error:', err);
-      const isBengali = /[\u0980-\u09FF]/.test(text) || selectedLanguage.startsWith('bn');
-      const fallbackReply = isBengali
-        ? `বস, আপনার প্রশ্নটি পেয়েছি। সার্ভারে পুনঃসংযোগের চেষ্টা করছি।`
-        : `Boss, I received your message. Reconnecting to services.`;
-
       const fallbackMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: fallbackReply,
+        content: `I received your message: "${text}". Reconnecting to services.`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         lang: selectedLanguage,
       };
@@ -200,25 +211,22 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
   const testAudioOutput = async () => {
     soundFX.unlock();
     soundFX.playActivateSound();
-    setVoiceTestStatus('Testing Real Human Voice...');
+    setVoiceTestStatus('Testing Voice...');
 
-    const isBengali = selectedLanguage.startsWith('bn');
-    const testPhrase = isBengali
-      ? 'নমস্কার বস! আমি নোভা। এটি আমার রিয়েল হিউম্যান ভয়েস।'
-      : 'Hello boss! I am NOVA, speaking in real human voice studio audio.';
+    const testPhrase = 'Hello! I am NOVA, your personal AI assistant. Real voice audio is working perfectly.';
 
     if (voiceMode === 'human') {
       await SpeechService.speakHumanVoice(testPhrase, {
         voiceName: humanVoicePersona,
         lang: selectedLanguage,
-        onStart: () => setVoiceTestStatus('Real Human Voice Playing...'),
+        onStart: () => setVoiceTestStatus('Voice Playing...'),
         onEnd: () => setVoiceTestStatus('Voice Working ✓'),
         onError: () => setVoiceTestStatus('Voice Active ✓'),
       });
     } else {
       SpeechService.speak(testPhrase, {
         lang: selectedLanguage,
-        onStart: () => setVoiceTestStatus('Browser Voice Playing...'),
+        onStart: () => setVoiceTestStatus('Voice Playing...'),
         onEnd: () => setVoiceTestStatus('Voice Working ✓'),
         onError: () => setVoiceTestStatus('Voice Active ✓'),
       });
@@ -229,7 +237,7 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
 
   const saveCustomApiKey = () => {
     localStorage.setItem('nova_gemini_api_key', customApiKey.trim());
-    setKeySavedMessage('API Key সফলভাবে সেভ হয়েছে!');
+    setKeySavedMessage('API Key saved successfully!');
     setTimeout(() => {
       setKeySavedMessage('');
       setShowKeyModal(false);
@@ -239,6 +247,7 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
   const clearChat = () => {
     soundFX.playClick();
     setMessages([]);
+    localStorage.removeItem('nova_chat_history');
     SpeechService.stop();
     onStatusChange?.('idle');
   };
@@ -256,11 +265,13 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
               onChange={(e) => onLanguageChange(e.target.value)}
               className="px-2.5 py-1.5 rounded-xl bg-neutral-950 border border-neutral-800 text-neutral-200 focus:outline-none focus:border-cyan-500/50 font-medium"
             >
-              <option value="bn-BD">বাংলা (Bengali)</option>
               <option value="en-US">English (US)</option>
+              <option value="bn-BD">বাংলা (Bengali)</option>
               <option value="hi-IN">हिन्दी (Hindi)</option>
               <option value="ar-SA">العربية (Arabic)</option>
               <option value="es-ES">Español (Spanish)</option>
+              <option value="fr-FR">Français (French)</option>
+              <option value="de-DE">Deutsch (German)</option>
             </select>
           </div>
 
@@ -276,10 +287,10 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
                   ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold shadow-sm'
                   : 'text-neutral-400 hover:text-white'
               }`}
-              title="Studio-grade realistic human audio"
+              title="Studio-grade realistic human voice"
             >
               <Headphones size={12} />
-              <span>রিয়েল হিউম্যান ভয়েস</span>
+              <span>Human Voice</span>
             </button>
             <button
               onClick={() => {
@@ -292,7 +303,7 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
                   : 'text-neutral-400 hover:text-white'
               }`}
             >
-              <span>ব্রাউজার ভয়েস</span>
+              <span>Browser Voice</span>
             </button>
           </div>
 
@@ -304,10 +315,10 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
               className="px-2 py-1.5 rounded-xl bg-neutral-950 border border-neutral-800 text-neutral-300 font-medium text-[11px]"
               title="Voice Persona"
             >
-              <option value="Kore">Kore (মিষ্টি নারী কণ্ঠ)</option>
-              <option value="Fenrir">Fenrir (গম্ভীর পুরুষ কণ্ঠ)</option>
-              <option value="Puck">Puck (তরুণ বন্ধুবৎসল কণ্ঠ)</option>
-              <option value="Zephyr">Zephyr (মার্জিত শান্ত কণ্ঠ)</option>
+              <option value="Kore">Kore (Warm Female)</option>
+              <option value="Fenrir">Fenrir (Authoritative Male)</option>
+              <option value="Puck">Puck (Friendly Youth)</option>
+              <option value="Zephyr">Zephyr (Calm Executive)</option>
             </select>
           )}
 
@@ -325,7 +336,7 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
             }`}
           >
             {autoSpeakReplies ? <Volume2 size={13} className="text-purple-400" /> : <VolumeX size={13} />}
-            <span>ভয়েস: {autoSpeakReplies ? 'চালু' : 'বন্ধ'}</span>
+            <span>Voice: {autoSpeakReplies ? 'ON' : 'OFF'}</span>
           </button>
         </div>
 
@@ -334,10 +345,10 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
           <button
             onClick={testAudioOutput}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 transition-colors font-medium"
-            title="Click to hear NOVA speak right now"
+            title="Click to test voice audio output"
           >
             <Volume2 size={13} className="text-cyan-400" />
-            <span>{voiceTestStatus || 'ভয়েস টেস্ট (Hear Voice)'}</span>
+            <span>{voiceTestStatus || 'Test Audio'}</span>
           </button>
 
           {/* API Key Modal Button */}
@@ -347,14 +358,14 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
             title="Configure Gemini API Key"
           >
             <Key size={13} className="text-amber-400" />
-            <span>{customApiKey ? 'API Key: সংযুক্ত ✓' : '🔑 API Key দিন'}</span>
+            <span>{customApiKey ? 'API Key: Set ✓' : 'Set API Key'}</span>
           </button>
 
           {messages.length > 0 && (
             <button
               onClick={clearChat}
               className="p-1.5 rounded-lg text-neutral-400 hover:text-rose-400 hover:bg-neutral-800 transition-colors"
-              title="Clear Chat"
+              title="Clear Chat History"
             >
               <Trash2 size={14} />
             </button>
@@ -368,7 +379,7 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-amber-300 flex items-center gap-2">
               <Key size={14} />
-              Google Gemini API Key কনফিগারেশন (বিনামূল্যে)
+              Google Gemini API Key Configuration
             </span>
             <button
               onClick={() => setShowKeyModal(false)}
@@ -378,14 +389,14 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
             </button>
           </div>
           <p className="text-[11px] text-neutral-400">
-            Vercel বা যেকোনো সাইটে আনলিমিটেড AI পাওয়ার ও রিয়েল হিউম্যান ভয়েস চালু করতে আপনার ফ্রি API Key দিন।{' '}
+            For unlimited intelligence and studio-quality human voice across any deployment, enter your free Gemini API key.{' '}
             <a
               href="https://aistudio.google.com/app/apikey"
               target="_blank"
               rel="noopener noreferrer"
               className="text-amber-400 underline font-semibold"
             >
-              বিনামূল্যে Google থেকে API Key নিন (Get Free Key)
+              Get free Gemini API Key
             </a>
           </p>
           <div className="flex gap-2">
@@ -393,7 +404,7 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
               type="password"
               value={customApiKey}
               onChange={(e) => setCustomApiKey(e.target.value)}
-              placeholder="AIzaSy... (Paste Gemini Key here)"
+              placeholder="Paste your Gemini API key (AIzaSy...)"
               className="flex-1 px-3 py-2 text-xs rounded-xl bg-neutral-950 border border-neutral-700 text-white font-mono"
             />
             <button
@@ -415,11 +426,11 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
         {messages.length === 0 ? (
           <div className="py-12 px-4 text-center text-neutral-500 space-y-2">
             <Bot size={32} className="mx-auto text-cyan-500/40 animate-pulse" />
-            <p className="text-xs text-neutral-400 font-medium">
-              আপনার পার্সোনাল অ্যাসিস্ট্যান্ট NOVA প্রস্তুত।
+            <p className="text-xs text-neutral-300 font-medium">
+              NOVA Personal Assistant is online and listening.
             </p>
             <p className="text-[11px] text-neutral-500">
-              যেকোনো প্রশ্ন করুন (যেমন: "বাংলাদেশের রাজধানী কী?", "আজকের আবহাওয়া কেমন?", "2+2 কত?")।
+              Type or speak any question (e.g. "What is the capital of France?", "Solve 125 * 8", "Help me draft an email").
             </p>
           </div>
         ) : (
@@ -455,10 +466,10 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
                     <button
                       onClick={() => handleReplayVoice(msg)}
                       className="hover:text-cyan-400 p-0.5 transition-colors flex items-center gap-1 font-semibold text-purple-300"
-                      title="ভয়েস শুনুন (Listen in Human Voice)"
+                      title="Listen in Human Voice"
                     >
                       <Volume2 size={13} />
-                      <span className="text-[10px]">ভয়েস শুনুন</span>
+                      <span className="text-[10px]">Play Voice</span>
                     </button>
                   )}
                 </div>
@@ -480,7 +491,7 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
             </div>
             <div className="p-3 rounded-2xl bg-neutral-900 border border-neutral-800 text-neutral-400 flex items-center gap-2">
               <Loader2 size={14} className="animate-spin text-cyan-400" />
-              <span>NOVA উত্তর প্রস্তুত করছে...</span>
+              <span>NOVA is thinking and composing reply...</span>
             </div>
           </div>
         )}
@@ -495,7 +506,7 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && !isProcessing && handleSendMessage()}
-          placeholder="যেকোনো প্রশ্ন লিখুন বা মুখে বলুন (Type any question or speak)..."
+          placeholder="Ask anything, speak your command, or type a request..."
           className="flex-1 px-4 py-3.5 text-xs rounded-2xl bg-neutral-950 border border-neutral-800 text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-cyan-500/50 shadow-inner"
         />
 
@@ -506,7 +517,7 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
               ? 'bg-rose-500 border-rose-500 text-white animate-pulse shadow-lg shadow-rose-500/30'
               : 'bg-neutral-900 hover:bg-neutral-800 border-neutral-700 text-neutral-200'
           }`}
-          title={isMicActive ? 'মাইক বন্ধ করুন' : 'মাইক চালু করে কথা বলুন'}
+          title={isMicActive ? 'Mute Microphone' : 'Enable Microphone & Speak'}
         >
           {isMicActive ? <MicOff size={18} /> : <Mic size={18} />}
         </button>

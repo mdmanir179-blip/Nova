@@ -28,7 +28,7 @@ export default function App() {
   const [isMicActive, setIsMicActive] = useState<boolean>(false);
   const [isFullscreenVisualizer, setIsFullscreenVisualizer] = useState<boolean>(false);
   const [spokenText, setSpokenText] = useState<string>('');
-  const [selectedLanguage, setSelectedLanguage] = useState<string>('bn-BD');
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('en-US');
   const [currentTime, setCurrentTime] = useState<string>('');
   const [externalVoicePrompt, setExternalVoicePrompt] = useState<string>('');
 
@@ -83,7 +83,7 @@ export default function App() {
             setAgentStatus('idle');
           }
         },
-        selectedLanguage === 'auto' ? 'bn-BD' : selectedLanguage
+        selectedLanguage === 'auto' ? 'en-US' : selectedLanguage
       );
     }
   };
@@ -101,7 +101,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#05070d] text-neutral-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-black">
-      {/* Top Futuristic Cyber Navigation Bar */}
+      {/* Top Futuristic Navigation Bar */}
       <header className="sticky top-0 z-40 w-full border-b border-cyan-900/20 bg-neutral-950/80 backdrop-blur-xl px-4 lg:px-8 py-3.5">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           {/* Logo & Brand */}
@@ -118,7 +118,7 @@ export default function App() {
                 </span>
               </div>
               <p className="text-[11px] text-neutral-400 hidden sm:block">
-                Universal Multilingual Personal Assistant
+                Universal Personal AI Executive Assistant
               </p>
             </div>
           </div>
@@ -143,7 +143,7 @@ export default function App() {
                 setIsFullscreenVisualizer(!isFullscreenVisualizer);
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 text-neutral-300 hover:text-white transition-colors"
-              title="Full-Screen Holographic Mode"
+              title="Full-Screen Holographic Visualizer"
             >
               {isFullscreenVisualizer ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
               <span className="hidden sm:inline">
@@ -170,7 +170,7 @@ export default function App() {
             }`}
           >
             <Bot size={15} />
-            <span>ভয়েস অ্যাসিস্ট্যান্ট (Voice Assistant Core)</span>
+            <span>Voice Assistant Core</span>
           </button>
 
           <button
@@ -185,7 +185,7 @@ export default function App() {
             }`}
           >
             <MessageSquare size={15} />
-            <span>হোয়াটসঅ্যাপ অটো-রিপ্লাই (WhatsApp & SMS)</span>
+            <span>WhatsApp & SMS Auto-Replier</span>
           </button>
 
           <button
@@ -200,7 +200,7 @@ export default function App() {
             }`}
           >
             <Bell size={15} />
-            <span>ভয়েস রিমাইন্ডার ও টাস্ক (Voice Reminders)</span>
+            <span>Voice Reminders & Tasks</span>
           </button>
 
           <button
@@ -215,7 +215,7 @@ export default function App() {
             }`}
           >
             <Wand2 size={15} />
-            <span>ক্রিয়েটিভ স্টুডিও (Image, Product & Video)</span>
+            <span>Creative Multimedia Studio</span>
           </button>
         </div>
 
@@ -237,12 +237,12 @@ export default function App() {
               {/* Quick agent info */}
               <div className="p-4 rounded-2xl border border-neutral-800 bg-neutral-900/40 text-xs space-y-2">
                 <span className="font-semibold text-neutral-300 block">
-                  ভয়েস ও অডিও ইন্টারঅ্যাকশন টিপস:
+                  Voice & Interaction Guide:
                 </span>
-                <p className="text-neutral-400">
-                  • <b>"Click to Speak"</b> বাটনে চাপ দিয়ে যেকোনো ভাষায় কথা বলুন।
-                  <br />• কথা বলার সাথে সাথে স্ক্রিনের অডিও সাউন্ডওয়েভ ও হোলোগ্রাফিক অর্ব রেসপন্স করবে।
-                  <br />• NOVA সাথে সাথে ভয়েস ও লেখার মাধ্যমে আপনার প্রশ্নের উত্তর দেবে।
+                <p className="text-neutral-400 leading-relaxed">
+                  • Click <b>"Click to Speak"</b> to communicate via microphone in real-time.
+                  <br />• The holographic orb and soundwaves react dynamically to your voice frequencies.
+                  <br />• NOVA delivers spoken answers via studio-grade human audio and typed text.
                 </p>
               </div>
             </div>
@@ -288,7 +288,7 @@ export default function App() {
 
       {/* Footer */}
       <footer className="mt-auto border-t border-neutral-900 py-4 px-6 text-center text-xs text-neutral-500">
-        NOVA Multilingual AI Personal Assistant • Powered by Gemini 3.8
+        NOVA AI Personal Assistant • Powered by Gemini 3.8
       </footer>
     </div>
   );

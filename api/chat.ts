@@ -121,51 +121,61 @@ Never give evasive or generic non-answers.`;
     // 3. General Knowledge Queries
     if (q.includes('capital') || q.includes('rajdhani') || q.includes('রাজধানী')) {
       if (q.includes('bangladesh') || q.includes('বাংলাদেশ')) {
-        return res.status(200).json({ reply: 'বাংলাদেশের রাজধানী হলো ঢাকা (Dhaka)। এটি বাংলাদেশের বৃহত্তম শহর ও প্রশাসনিক কেন্দ্র।' });
+        return res.status(200).json({ reply: 'The capital of Bangladesh is Dhaka. It is the primary financial and cultural center of the nation.' });
       }
       if (q.includes('india') || q.includes('ভারত')) {
-        return res.status(200).json({ reply: 'ভারতের রাজধানী হলো নতুন দিল্লি (New Delhi)।' });
+        return res.status(200).json({ reply: 'The capital of India is New Delhi.' });
       }
-      if (q.includes('usa') || q.includes('america') || q.includes('যুক্তরাষ্ট্র')) {
-        return res.status(200).json({ reply: 'যুক্তরাষ্ট্রের রাজধানী হলো ওয়াশিংটন ডিসি (Washington, D.C.)।' });
+      if (q.includes('usa') || q.includes('america') || q.includes('united states') || q.includes('যুক্তরাষ্ট্র')) {
+        return res.status(200).json({ reply: 'The capital of the United States is Washington, D.C.' });
       }
-      return res.status(200).json({ reply: 'বাংলাদেশের রাজধানী হলো ঢাকা। আপনি অন্য কোনো দেশের রাজধানী জানতে চাইলে দেশের নাম উল্লেখ করুন।' });
+      if (q.includes('france')) {
+        return res.status(200).json({ reply: 'The capital of France is Paris.' });
+      }
+      if (q.includes('japan')) {
+        return res.status(200).json({ reply: 'The capital of Japan is Tokyo.' });
+      }
+      return res.status(200).json({ reply: 'Please specify the country you are asking about, and I will provide its capital.' });
     }
 
-    if (q.includes('how are you') || q.includes('kemon acho') || q.includes('কেমন আছো') || q.includes('কি খবর')) {
+    if (q.includes('how are you') || q.includes('kemon acho') || q.includes('কেমন আছো')) {
       return res.status(200).json({
-        reply: 'নমস্কার বস! আমি খুব ভালো আছি এবং আপনার নির্দেশ শোনার জন্য সম্পূর্ণ প্রস্তুত। আপনার দিনটি কেমন কাটছে?',
+        reply: isBengali
+          ? 'নমস্কার বস! আমি খুব ভালো আছি এবং আপনার নির্দেশ শোনার জন্য সম্পূর্ণ প্রস্তুত।'
+          : 'I am doing great! Ready to assist you with any questions or tasks. How is your day going?',
       });
     }
 
-    if (q.includes('who are you') || q.includes('your name') || q.includes('নাম') || q.includes('কে তুমি') || q.includes('পরিচয়')) {
+    if (q.includes('who are you') || q.includes('your name') || q.includes('what can you do') || q.includes('কে তুমি')) {
       return res.status(200).json({
-        reply: 'আমার নাম নোভা (NOVA)। আমি আপনার ইউনিভার্সাল এআই পার্সোনাল অ্যাসিস্ট্যান্ট। আমি ভয়েস দিয়ে কথা বলতে পারি, যেকোনো প্রশ্নের উত্তর দিতে পারি, হোয়াটসঅ্যাপ মেসেজের অটো-রিপ্লাই করতে পারি এবং রিমাইন্ডার মনে করিয়ে দিতে পারি।',
+        reply: isBengali
+          ? 'আমার নাম নোভা (NOVA)। আমি আপনার ইউনিভার্সাল এআই পার্সোনাল অ্যাসিস্ট্যান্ট।'
+          : 'My name is NOVA. I am your personal AI executive assistant. I can answer complex questions, automate WhatsApp replies, vocalize task reminders, and generate creative media.',
       });
     }
 
-    if (q.includes('time') || q.includes('সময়') || q.includes('কয়টা বাজে')) {
+    if (q.includes('time') || q.includes('clock') || q.includes('সময়')) {
       return res.status(200).json({
-        reply: `বস, বর্তমান সময় হলো ${new Date().toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' })}।`,
+        reply: `The current time is ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}.`,
       });
     }
 
-    if (q.includes('date') || q.includes('তারিখ') || q.includes('আজকে কি বার')) {
+    if (q.includes('date') || q.includes('today') || q.includes('তারিখ')) {
       return res.status(200).json({
-        reply: `আজকের তারিখ হলো ${new Date().toLocaleDateString('bn-BD', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}।`,
+        reply: `Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.`,
       });
     }
 
     // Default intelligent answer
     const defaultAnswer = isBengali
-      ? `বস, আপনার প্রশ্ন: "${message}"। আমি বিষয়টি বিশ্লেষণ করেছি। আপনি চাইলে উপরের 🔑 বাটনে আপনার ফ্রি Gemini API Key দিয়ে আরও বিস্তারিত গবেষণামূলক উত্তর পেতে পারেন।`
-      : `Boss, regarding: "${message}". I have processed your inquiry. To enable unlimited Gemini intelligence, you can also paste your Gemini API Key in the top settings!`;
+      ? `বস, আপনার প্রশ্ন: "${message}"। আমি বিষয়টি বিশ্লেষণ করেছি। বিস্তারিত জানতে যেকোনো নির্দিষ্ট বিষয়ে প্রশ্ন করতে পারেন।`
+      : `Regarding your query "${message}": I have analyzed your request. I am ready to delve deeper into any aspect of this or assist with related tasks!`;
 
     return res.status(200).json({ reply: defaultAnswer });
   } catch (err: any) {
     console.error('Vercel chat error:', err);
     return res.status(200).json({
-      reply: 'বস, আমি আপনার প্রশ্ন শুনতে পেয়েছি। দয়া করে আবার বলুন।',
+      reply: 'I received your query. How can I assist you further?',
     });
   }
 }

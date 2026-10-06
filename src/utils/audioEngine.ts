@@ -35,7 +35,7 @@ class AudioFXEngine {
         if (ctx.state === 'suspended') {
           ctx.resume();
         }
-        // Play silent 0.001s buffer to unlock iOS Safari
+        // Play silent 0.001s buffer to unlock iOS Safari & Chrome
         const buffer = ctx.createBuffer(1, 1, 22050);
         const source = ctx.createBufferSource();
         source.buffer = buffer;
@@ -143,7 +143,7 @@ export class SpeechService {
   private static initialized = false;
   private static currentAudio: HTMLAudioElement | null = null;
 
-  // Real Human Studio Voice synthesis via Gemini 3.8 Flash Lite TTS with browser fallback
+  // Real Human Studio Voice synthesis via Gemini TTS with browser speech fallback
   static async speakHumanVoice(
     text: string,
     options: {
@@ -191,10 +191,10 @@ export class SpeechService {
         }
       }
     } catch (err) {
-      console.warn('Real Human TTS server call fallback to browser TTS:', err);
+      console.warn('Real Human TTS server fallback to browser speech synthesis:', err);
     }
 
-    // Fallback to browser speech synthesis
+    // Direct fallback to browser speech synthesis
     this.speak(text, options);
   }
 
@@ -264,7 +264,7 @@ export class SpeechService {
     utterance.pitch = options.pitch ?? 1.0;
 
     const voices = this.getVoices();
-    const lang = options.lang || 'auto';
+    const lang = options.lang || 'en-US';
     const isBengaliText = /[\u0980-\u09FF]/.test(cleanText);
 
     // Voice matching logic
@@ -287,7 +287,7 @@ export class SpeechService {
     // If specific language voice not installed on OS, fallback to any English or primary system voice
     if (!matchedVoice && voices.length > 0) {
       matchedVoice =
-        voices.find((v) => v.lang.toLowerCase().startsWith('en')) ||
+        voices.find((v) => v.lang.toLowerCase().startsWith('en-us') || v.lang.toLowerCase().startsWith('en')) ||
         voices.find((v) => v.default) ||
         voices[0];
     }
@@ -296,7 +296,6 @@ export class SpeechService {
       utterance.voice = matchedVoice;
       utterance.lang = matchedVoice.lang;
     } else {
-      // Fallback BCP 47
       utterance.lang = isBengaliText ? 'bn-BD' : 'en-US';
     }
 
@@ -386,10 +385,10 @@ export class VoiceRecognitionService {
     onResult: (transcript: string, isFinal: boolean) => void,
     onError: (err: any) => void,
     onEnd: () => void,
-    lang: string = 'bn-BD'
+    lang: string = 'en-US'
   ) {
     if (!this.recognition) {
-      onError('Speech recognition not supported in this browser');
+      onError('Speech recognition is not supported in this browser');
       return;
     }
 

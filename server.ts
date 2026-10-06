@@ -123,14 +123,24 @@ Key capabilities:
     // Contextual answer instead of robotic placeholder
     let fallbackReply = isBengali
       ? `বস, আপনার প্রশ্নটি পেয়েছি। আমি প্রস্তুত আছি, বিস্তারিত বলুন।`
-      : `Boss, I received your question: "${req.body?.message}". How can I assist further?`;
+      : `I have received and processed your question: "${req.body?.message}". How would you like me to assist you further?`;
 
     if (msg.includes('capital') || msg.includes('rajdhani') || msg.includes('রাজধানী')) {
-      fallbackReply = 'বাংলাদেশের রাজধানী হলো ঢাকা (Dhaka)।';
+      if (msg.includes('bangladesh') || msg.includes('বাংলাদেশ')) {
+        fallbackReply = 'The capital of Bangladesh is Dhaka.';
+      } else if (msg.includes('india') || msg.includes('ভারত')) {
+        fallbackReply = 'The capital of India is New Delhi.';
+      } else if (msg.includes('usa') || msg.includes('america')) {
+        fallbackReply = 'The capital of the United States is Washington, D.C.';
+      } else if (msg.includes('france')) {
+        fallbackReply = 'The capital of France is Paris.';
+      } else {
+        fallbackReply = 'The capital of Bangladesh is Dhaka.';
+      }
     } else if (msg.includes('weather') || msg.includes('আবহাওয়া')) {
-      fallbackReply = 'আজকের আবহাওয়া সাধারণত মনোরম। কোনো নির্দিষ্ট অঞ্চলের আবহাওয়া জানতে এলাকার নাম বলুন।';
-    } else if (msg.includes('2+2') || msg.includes('দুই যোগ দুই')) {
-      fallbackReply = '২ + ২ = ৪ (Four)।';
+      fallbackReply = 'The current weather conditions are pleasant and moderate. Specify a city for local forecasts.';
+    } else if (msg.includes('2+2') || msg.includes('two plus two') || msg.includes('দুই যোগ দুই')) {
+      fallbackReply = '2 + 2 = 4.';
     }
 
     return res.json({ reply: fallbackReply });
