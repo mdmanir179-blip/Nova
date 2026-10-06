@@ -15,9 +15,10 @@ import {
   Layers,
   Wand2,
   Download,
-  Smartphone
+  Smartphone,
+  Sun
 } from 'lucide-react';
-import { AgentVisualizer } from './components/AgentVisualizer';
+import { AgentVisualizer, ScreenLightColor, ScreenLightIntensity } from './components/AgentVisualizer';
 import { VoiceAssistantCore } from './components/VoiceAssistantCore';
 import { WhatsAppAutoReplier } from './components/WhatsAppAutoReplier';
 import { VoiceReminders } from './components/VoiceReminders';
@@ -35,6 +36,14 @@ export default function App() {
   const [selectedLanguage, setSelectedLanguage] = useState<string>('en-US');
   const [currentTime, setCurrentTime] = useState<string>('');
   const [externalVoicePrompt, setExternalVoicePrompt] = useState<string>('');
+
+  // Ambient Screen Lighting State
+  const [ambientLightColor, setAmbientLightColor] = useState<ScreenLightColor>(() => {
+    return (typeof window !== 'undefined' ? localStorage.getItem('ms_screen_light_color') as ScreenLightColor : null) || 'cyan';
+  });
+  const [ambientLightIntensity, setAmbientLightIntensity] = useState<ScreenLightIntensity>(() => {
+    return (typeof window !== 'undefined' ? localStorage.getItem('ms_screen_light_intensity') as ScreenLightIntensity : null) || 'high';
+  });
 
   // App install prompt & modal
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -131,8 +140,46 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [isFullscreenVisualizer]);
 
+  // Compute ambient background illumination classes
+  const getAmbientGlowStyles = () => {
+    if (ambientLightIntensity === 'off') return {};
+
+    const opacity = ambientLightIntensity === 'high' ? 0.35 : ambientLightIntensity === 'medium' ? 0.2 : 0.12;
+    const pulseFactor = agentStatus === 'speaking' || agentStatus === 'listening' ? 1.4 : 1.0;
+
+    let glowColor = 'rgba(0, 245, 255, ';
+    if (ambientLightColor === 'violet') glowColor = 'rgba(168, 85, 247, ';
+    else if (ambientLightColor === 'emerald') glowColor = 'rgba(16, 185, 129, ';
+    else if (ambientLightColor === 'amber') glowColor = 'rgba(245, 158, 11, ';
+    else if (ambientLightColor === 'prism') glowColor = 'rgba(236, 72, 153, ';
+
+    return {
+      backgroundImage: `radial-gradient(ellipse 80% 50% at 50% -20%, ${glowColor}${opacity * pulseFactor}), transparent)`,
+    };
+  };
+
   return (
-    <div className="min-h-screen bg-[#05070d] text-neutral-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-black">
+    <div
+      className="min-h-screen bg-[#05070d] text-neutral-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-black relative transition-all duration-700"
+      style={getAmbientGlowStyles()}
+    >
+      {/* Dynamic Screen Light Halo Bloom (Top Ambient Light) */}
+      {ambientLightIntensity !== 'off' && (
+        <div
+          className={`absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-80 pointer-events-none blur-3xl rounded-full transition-all duration-700 ${
+            ambientLightColor === 'cyan'
+              ? 'bg-cyan-500/10'
+              : ambientLightColor === 'violet'
+              ? 'bg-purple-600/15'
+              : ambientLightColor === 'emerald'
+              ? 'bg-emerald-500/10'
+              : ambientLightColor === 'amber'
+              ? 'bg-amber-500/10'
+              : 'bg-gradient-to-r from-pink-500/15 via-cyan-500/15 to-purple-500/15'
+          } ${agentStatus === 'speaking' || agentStatus === 'listening' ? 'scale-110 opacity-100' : 'scale-95 opacity-70'}`}
+        />
+      )}
+
       {/* Top Futuristic Navigation Bar */}
       <header className="sticky top-0 z-40 w-full border-b border-cyan-900/20 bg-neutral-950/80 backdrop-blur-xl px-4 lg:px-8 py-3.5">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -185,7 +232,7 @@ export default function App() {
                 soundFX.playClick();
                 setIsFullscreenVisualizer(!isFullscreenVisualizer);
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 text-neutral-300 hover:text-white transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 text-neutral-300 hover:text-white transition-colors cursor-pointer"
               title="Full-Screen Holographic Visualizer"
             >
               {isFullscreenVisualizer ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
@@ -198,7 +245,7 @@ export default function App() {
       </header>
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-8 space-y-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-8 space-y-6 relative z-10">
         {/* Navigation Tabs Bar */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-neutral-800/80">
           <button
@@ -206,7 +253,7 @@ export default function App() {
               setActiveNav('assistant');
               soundFX.playClick();
             }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
               activeNav === 'assistant'
                 ? 'bg-cyan-500 text-neutral-950 shadow-md shadow-cyan-500/20'
                 : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
@@ -221,7 +268,7 @@ export default function App() {
               setActiveNav('whatsapp');
               soundFX.playClick();
             }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
               activeNav === 'whatsapp'
                 ? 'bg-emerald-500 text-neutral-950 shadow-md shadow-emerald-500/20'
                 : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
@@ -236,7 +283,7 @@ export default function App() {
               setActiveNav('reminders');
               soundFX.playClick();
             }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
               activeNav === 'reminders'
                 ? 'bg-purple-500 text-white shadow-md shadow-purple-500/20'
                 : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
@@ -251,7 +298,7 @@ export default function App() {
               setActiveNav('creative');
               soundFX.playClick();
             }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
               activeNav === 'creative'
                 ? 'bg-rose-500 text-white shadow-md shadow-rose-500/20'
                 : 'text-neutral-400 hover:text-white hover:bg-neutral-900'
@@ -275,17 +322,21 @@ export default function App() {
                 onToggleFullscreen={() => setIsFullscreenVisualizer(!isFullscreenVisualizer)}
                 spokenText={spokenText}
                 assistantName="MS AI"
+                onScreenLightChange={(color, intensity) => {
+                  setAmbientLightColor(color);
+                  setAmbientLightIntensity(intensity);
+                }}
               />
 
               {/* Quick agent info */}
               <div className="p-4 rounded-2xl border border-neutral-800 bg-neutral-900/40 text-xs space-y-2">
                 <span className="font-semibold text-neutral-300 block">
-                  Voice & Interaction Guide:
+                  Voice & Screen Light FX:
                 </span>
                 <p className="text-neutral-400 leading-relaxed">
-                  • Click <b>"Click to Speak"</b> to communicate via microphone in real-time.
-                  <br />• The holographic orb and soundwaves react dynamically to your voice frequencies.
-                  <br />• MS delivers spoken answers via studio-grade human audio and typed text.
+                  • Click <b>"Screen Light & FX"</b> to switch 3D holographic animations (Quantum Orb, Cyber Matrix, Supernova, Sonic Spectrum).
+                  <br />• Customize ambient screen backlighting (Cyan, Violet, Emerald, Amber, Prism RGB) with adjustable intensity.
+                  <br />• Ambient screen lighting responds and pulses to your voice in real time.
                 </p>
               </div>
             </div>
@@ -326,6 +377,10 @@ export default function App() {
           onToggleFullscreen={() => setIsFullscreenVisualizer(false)}
           spokenText={spokenText}
           assistantName="MS AI"
+          onScreenLightChange={(color, intensity) => {
+            setAmbientLightColor(color);
+            setAmbientLightIntensity(intensity);
+          }}
         />
       )}
 
