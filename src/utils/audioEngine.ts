@@ -141,6 +141,62 @@ export class SpeechService {
   private static cachedVoices: SpeechSynthesisVoice[] = [];
   private static isSpeaking = false;
   private static initialized = false;
+  private static currentAudio: HTMLAudioElement | null = null;
+
+  // Real Human Studio Voice synthesis via Gemini 3.8 Flash Lite TTS with browser fallback
+  static async speakHumanVoice(
+    text: string,
+    options: {
+      voiceName?: string;
+      lang?: string;
+      rate?: number;
+      onStart?: () => void;
+      onEnd?: () => void;
+      onError?: (err: any) => void;
+    } = {}
+  ) {
+    soundFX.unlock();
+    this.stop();
+
+    try {
+      options.onStart?.();
+      this.isSpeaking = true;
+
+      const res = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text,
+          voiceName: options.voiceName || 'Kore',
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.audioBase64) {
+          const audio = new Audio(`data:${data.format || 'audio/wav'};base64,${data.audioBase64}`);
+          this.currentAudio = audio;
+          audio.onended = () => {
+            this.isSpeaking = false;
+            this.currentAudio = null;
+            options.onEnd?.();
+          };
+          audio.onerror = () => {
+            this.isSpeaking = false;
+            this.currentAudio = null;
+            this.speak(text, options);
+          };
+          await audio.play();
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Real Human TTS server call fallback to browser TTS:', err);
+    }
+
+    // Fallback to browser speech synthesis
+    this.speak(text, options);
+  }
 
   private static initVoices() {
     if (typeof window === 'undefined' || !window.speechSynthesis) return;
@@ -277,6 +333,14 @@ export class SpeechService {
   }
 
   static stop() {
+    if (this.currentAudio) {
+      try {
+        this.currentAudio.pause();
+        this.currentAudio = null;
+      } catch {
+        // ignore
+      }
+    }
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       try {
         window.speechSynthesis.cancel();
