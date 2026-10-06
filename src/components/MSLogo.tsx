@@ -30,13 +30,13 @@ export const MSLogo: React.FC<MSLogoProps> = ({ size = 36, className = '', showG
       >
         <defs>
           <linearGradient id="msGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#00f5ff" />
-            <stop offset="50%" stop-color="#3b82f6" />
-            <stop offset="100%" stop-color="#a855f7" />
+            <stop offset="0%" stopColor="#00f5ff" />
+            <stop offset="50%" stopColor="#3b82f6" />
+            <stop offset="100%" stopColor="#a855f7" />
           </linearGradient>
           <linearGradient id="msPinkGradient" x1="0%" y1="100%" x2="100%" y2="0%">
-            <stop offset="0%" stop-color="#06b6d4" />
-            <stop offset="100%" stop-color="#ec4899" />
+            <stop offset="0%" stopColor="#06b6d4" />
+            <stop offset="100%" stopColor="#ec4899" />
           </linearGradient>
         </defs>
 
