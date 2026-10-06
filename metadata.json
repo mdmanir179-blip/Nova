@@ -1,0 +1,10 @@
+{
+  "name": "NOVA AI Personal Assistant",
+  "description": "Multilingual AI agent with WhatsApp auto-reply, voice task reminders, full-screen audio visualizer, and creative multimedia studio.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
