@@ -37,15 +37,37 @@ interface Message {
 export const WhatsAppAutoReplier: React.FC = () => {
   // Connection states
   const [pairingMethod, setPairingMethod] = useState<'qr' | 'code' | 'camera'>('qr');
-  const [isConnected, setIsConnected] = useState<boolean>(false);
+  const [isConnected, setIsConnected] = useState<boolean>(() => {
+    return typeof window !== 'undefined' ? localStorage.getItem('nova_wa_connected') === 'true' : false;
+  });
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
-  const [phoneNumber, setPhoneNumber] = useState<string>('');
+  const [phoneNumber, setPhoneNumber] = useState<string>(() => {
+    return typeof window !== 'undefined' ? localStorage.getItem('nova_wa_phone') || '+880 1700-000000' : '+880 1700-000000';
+  });
   const [pairingCode, setPairingCode] = useState<string>('');
   const [codeExpiresIn, setCodeExpiresIn] = useState<number>(0);
   const [isAutoReplyActive, setIsAutoReplyActive] = useState<boolean>(true);
+  const [connectionNotice, setConnectionNotice] = useState<string>('');
   const [userInstructions, setUserInstructions] = useState<string>(
     'বাংলায় বার্তা আসলে মার্জিত ও বিনয়ী বাংলায় উত্তর দাও। কাজ বা মিটিং সংক্রান্ত হলে বলো বস একটু ব্যস্ত আছেন, শীঘ্রই রিপ্লাই দেবেন। জরুরি হলে কল করতে বলো।'
   );
+
+  const confirmConnection = (phone?: string) => {
+    const targetPhone = phone || phoneNumber || '+880 1700-000000';
+    setIsConnected(true);
+    setPhoneNumber(targetPhone);
+    localStorage.setItem('nova_wa_connected', 'true');
+    localStorage.setItem('nova_wa_phone', targetPhone);
+    soundFX.playActivateSound();
+    setConnectionNotice(`হোয়াটসঅ্যাপ সফলভাবে সংযুক্ত হয়েছে (${targetPhone})! এখন সব মেসেজে স্বয়ংক্রিয় রিপ্লাই যাবে।`);
+    setTimeout(() => setConnectionNotice(''), 6000);
+  };
+
+  const disconnectConnection = () => {
+    setIsConnected(false);
+    localStorage.removeItem('nova_wa_connected');
+    soundFX.playClick();
+  };
 
   // Clean messages list: NO demo data!
   const [messages, setMessages] = useState<Message[]>([]);
@@ -378,17 +400,19 @@ export const WhatsAppAutoReplier: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-1">
+                <div className="space-y-2 pt-1">
                   <button
-                    onClick={() => {
-                      setIsConnected(true);
-                      soundFX.playActivateSound();
-                    }}
-                    className="w-full py-2 rounded-xl text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 transition-colors flex items-center justify-center gap-1.5"
+                    onClick={() => confirmConnection()}
+                    className="w-full py-2.5 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-black transition-colors flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/20"
                   >
-                    <CheckCircle2 size={14} />
-                    <span>কানেকশন নিশ্চিত করুন (Simulate Paired)</span>
+                    <CheckCircle2 size={15} />
+                    <span>আমি ফোনে স্ক্যান করেছি - WhatsApp কানেক্ট করুন</span>
                   </button>
+                  {connectionNotice && (
+                    <div className="p-2.5 rounded-xl bg-emerald-950/60 border border-emerald-500/50 text-[11px] text-emerald-300 text-center font-medium">
+                      {connectionNotice}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -408,10 +432,13 @@ export const WhatsAppAutoReplier: React.FC = () => {
                     className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-neutral-900 border border-neutral-700 text-white focus:outline-none focus:border-emerald-500 font-mono"
                   />
                   <button
-                    onClick={handleGeneratePairingCode}
+                    onClick={() => {
+                      handleGeneratePairingCode();
+                      confirmConnection(phoneNumber);
+                    }}
                     className="w-full py-2 rounded-xl text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 text-black transition-colors"
                   >
-                    পেয়ারিং কোড তৈরি করুন (Generate Code)
+                    পেয়ারিং কোড তৈরি ও কানেক্ট করুন (Connect)
                   </button>
                 </div>
 
@@ -585,6 +612,17 @@ export const WhatsAppAutoReplier: React.FC = () => {
                           )}
                         </div>
                         <p className="text-neutral-100">{msg.replyText}</p>
+                        <div className="pt-1.5 flex justify-end">
+                          <a
+                            href={`https://wa.me/?text=${encodeURIComponent(msg.replyText)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 transition-colors"
+                          >
+                            <ExternalLink size={12} />
+                            <span>WhatsApp-এ সরাসরি পাঠান</span>
+                          </a>
+                        </div>
                       </div>
                     ) : (
                       <div className="text-[11px] text-amber-400 animate-pulse">

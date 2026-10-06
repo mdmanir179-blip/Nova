@@ -342,11 +342,12 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
 
           {/* API Key Modal Button */}
           <button
-            onClick={() => setShowKeyModal(true)}
-            className="p-1.5 rounded-lg text-neutral-400 hover:text-amber-400 hover:bg-neutral-800 transition-colors"
+            onClick={() => setShowKeyModal(!showKeyModal)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition-colors"
             title="Configure Gemini API Key"
           >
-            <Key size={14} />
+            <Key size={13} className="text-amber-400" />
+            <span>{customApiKey ? 'API Key: সংযুক্ত ✓' : '🔑 API Key দিন'}</span>
           </button>
 
           {messages.length > 0 && (
@@ -367,7 +368,7 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-amber-300 flex items-center gap-2">
               <Key size={14} />
-              Gemini API Key কনফিগারেশন
+              Google Gemini API Key কনফিগারেশন (বিনামূল্যে)
             </span>
             <button
               onClick={() => setShowKeyModal(false)}
@@ -377,22 +378,30 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
             </button>
           </div>
           <p className="text-[11px] text-neutral-400">
-            Vercel বা নিজস্ব হোস্টিংয়ে সরাসরি ফুল Gemini পাওয়ার চালাতে আপনার API Key দিন:
+            Vercel বা যেকোনো সাইটে আনলিমিটেড AI পাওয়ার ও রিয়েল হিউম্যান ভয়েস চালু করতে আপনার ফ্রি API Key দিন।{' '}
+            <a
+              href="https://aistudio.google.com/app/apikey"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-amber-400 underline font-semibold"
+            >
+              বিনামূল্যে Google থেকে API Key নিন (Get Free Key)
+            </a>
           </p>
           <div className="flex gap-2">
             <input
               type="password"
               value={customApiKey}
               onChange={(e) => setCustomApiKey(e.target.value)}
-              placeholder="AIzaSy..."
+              placeholder="AIzaSy... (Paste Gemini Key here)"
               className="flex-1 px-3 py-2 text-xs rounded-xl bg-neutral-950 border border-neutral-700 text-white font-mono"
             />
             <button
               onClick={saveCustomApiKey}
-              className="px-4 py-2 rounded-xl text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-black flex items-center gap-1"
+              className="px-4 py-2 rounded-xl text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-black flex items-center gap-1 shrink-0"
             >
               <Check size={13} />
-              <span>Save</span>
+              <span>Save Key</span>
             </button>
           </div>
           {keySavedMessage && (

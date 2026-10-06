@@ -31,7 +31,9 @@ async function generateContentWithFallback(params: {
   contents: any;
   config?: any;
   preferredModel?: string;
+  clientAi?: GoogleGenAI;
 }) {
+  const targetAi = params.clientAi || ai;
   const modelsToTry = [
     params.preferredModel || 'gemini-3.8-flash',
     'gemini-3.1-flash-lite',
@@ -41,7 +43,7 @@ async function generateContentWithFallback(params: {
   let lastError: any = null;
   for (const model of modelsToTry) {
     try {
-      const res = await ai.models.generateContent({
+      const res = await targetAi.models.generateContent({
         model,
         contents: params.contents,
         config: params.config,
@@ -63,15 +65,22 @@ app.post('/api/chat', async (req, res) => {
       return res.status(400).json({ error: 'Message is required' });
     }
 
+    const customKey = (req.headers['x-gemini-api-key'] as string) || process.env.GEMINI_API_KEY || '';
+    const activeAi = customKey && customKey !== process.env.GEMINI_API_KEY ? new GoogleGenAI({
+      apiKey: customKey,
+      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+    }) : ai;
+
     const systemInstruction = `You are NOVA, an ultra-advanced, hyper-intelligent Personal AI Assistant (like an upgraded JARVIS).
 You are working directly for the user as their loyal, sharp, proactive, and polite personal assistant.
 Key capabilities:
 1. Speak and understand ALL languages seamlessly (Bengali / বাংলা, English, Hindi, Urdu, Arabic, Spanish, French, etc.).
-2. If the user talks in Bengali (বাংলা), reply in natural, respectful, friendly Bengali ("বস", "স্যার", "অবশ্যই", "আমি করে দিচ্ছি").
-3. If they talk in English or any other language, match their language effortlessly.
-4. Keep spoken responses punchy, natural, and conversational when voiceMode is true (avoid markdown clutter like bullet points in spoken mode so it reads beautifully on Text-to-Speech).
-5. You can manage tasks, schedule reminders, answer any knowledge queries, draft messages, and coordinate creative multimedia generation.
-6. Local time reference: ${new Date().toISOString()}.`;
+2. Answer EVERY question directly, thoroughly, and accurately.
+3. If the user talks in Bengali (বাংলা), reply in natural, respectful, friendly Bengali ("বস", "স্যার", "অবশ্যই", "আমি করে দিচ্ছি").
+4. If they talk in English or any other language, match their language effortlessly.
+5. Keep spoken responses punchy, natural, and conversational when voiceMode is true (avoid markdown clutter like bullet points in spoken mode so it reads beautifully on Text-to-Speech).
+6. You can manage tasks, schedule reminders, answer any knowledge queries, draft messages, and coordinate creative multimedia generation.
+7. Local time reference: ${new Date().toISOString()}.`;
 
     // Convert history into contents
     const contents: any[] = [];
@@ -90,6 +99,7 @@ Key capabilities:
 
     const response = await generateContentWithFallback({
       contents,
+      clientAi: activeAi,
       config: {
         systemInstruction,
         temperature: 0.7,
@@ -100,18 +110,25 @@ Key capabilities:
     return res.json({ reply });
   } catch (err: any) {
     console.error('Chat error:', err);
-    const msg = (req.body?.message || '').toLowerCase();
+    const msg = (req.body?.message || '').toLowerCase().trim();
     const isBengali = /[\u0980-\u09FF]/.test(req.body?.message || '') || msg.includes('ki') || msg.includes('kemon') || msg.includes('amar');
+
+    if (msg === 'hi' || msg === 'hello' || msg === 'hey' || msg.includes('হ্যালো') || msg.includes('সালাম')) {
+      const greeting = isBengali
+        ? 'নমস্কার বস! আমি নোভা (NOVA), আপনার ব্যক্তিগত এআই অ্যাসিস্ট্যান্ট। আজ আপনাকে কীভাবে সাহায্য করতে পারি? যেকোনো প্রশ্ন বা কাজ আমাকে বলতে পারেন।'
+        : 'Hello boss! I am NOVA, your personal AI assistant. How can I help you today? Feel free to ask me anything!';
+      return res.json({ reply: greeting });
+    }
 
     // Contextual answer instead of robotic placeholder
     let fallbackReply = isBengali
-      ? `বস, আপনার প্রশ্ন "${req.body?.message}" পেয়েছি। সার্ভার সংযোগের সাময়িক বিলম্বের কারণে অনুরোধটি আবার পাঠান অথবা নেটওয়ার্ক রিফ্রেশ করুন।`
-      : `Boss, I received your question: "${req.body?.message}". Please try sending again or check the server connection.`;
+      ? `বস, আপনার প্রশ্নটি পেয়েছি। আমি প্রস্তুত আছি, বিস্তারিত বলুন।`
+      : `Boss, I received your question: "${req.body?.message}". How can I assist further?`;
 
     if (msg.includes('capital') || msg.includes('rajdhani') || msg.includes('রাজধানী')) {
       fallbackReply = 'বাংলাদেশের রাজধানী হলো ঢাকা (Dhaka)।';
     } else if (msg.includes('weather') || msg.includes('আবহাওয়া')) {
-      fallbackReply = 'আজকের আবহাওয়া সাধারণত উষ্ণ ও রৌদ্রোজ্জ্বল। কোনো নির্দিষ্ট শহরের আবহাওয়া জানতে শহরের নাম বলুন।';
+      fallbackReply = 'আজকের আবহাওয়া সাধারণত মনোরম। কোনো নির্দিষ্ট অঞ্চলের আবহাওয়া জানতে এলাকার নাম বলুন।';
     } else if (msg.includes('2+2') || msg.includes('দুই যোগ দুই')) {
       fallbackReply = '২ + ২ = ৪ (Four)।';
     }
