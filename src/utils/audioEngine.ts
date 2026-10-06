@@ -1,26 +1,59 @@
 /**
- * Web Audio & Speech Synthesis/Recognition Engine for NOVA AI
+ * Bulletproof Web Audio & Speech Engine for NOVA AI
+ * Compatible across Vercel, Chrome, iOS Safari, Android, and Desktop
  */
 
 // Sound FX generator using Web Audio API
 class AudioFXEngine {
   private ctx: AudioContext | null = null;
+  private isUnlocked = false;
 
-  private getContext(): AudioContext {
-    if (!this.ctx) {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      this.ctx = new AudioCtx();
+  public getContext(): AudioContext | null {
+    if (typeof window === 'undefined') return null;
+    try {
+      if (!this.ctx) {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx) {
+          this.ctx = new AudioCtx();
+        }
+      }
+      if (this.ctx && this.ctx.state === 'suspended') {
+        this.ctx.resume().catch(() => {});
+      }
+      return this.ctx;
+    } catch {
+      return null;
     }
-    if (this.ctx.state === 'suspended') {
-      this.ctx.resume();
+  }
+
+  // Unlock audio context on user gesture
+  unlock() {
+    if (this.isUnlocked) return;
+    try {
+      const ctx = this.getContext();
+      if (ctx) {
+        if (ctx.state === 'suspended') {
+          ctx.resume();
+        }
+        // Play silent 0.001s buffer to unlock iOS Safari
+        const buffer = ctx.createBuffer(1, 1, 22050);
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        source.start(0);
+        this.isUnlocked = true;
+      }
+    } catch {
+      // ignore
     }
-    return this.ctx;
   }
 
   // Futuristic activation chime
   playActivateSound() {
+    this.unlock();
     try {
       const ctx = this.getContext();
+      if (!ctx) return;
       const now = ctx.currentTime;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -40,14 +73,16 @@ class AudioFXEngine {
       osc.start(now);
       osc.stop(now + 0.35);
     } catch {
-      // Audio context blocked until user gesture
+      // Audio context blocked
     }
   }
 
   // Reminder alarm alert sound
   playReminderAlert() {
+    this.unlock();
     try {
       const ctx = this.getContext();
+      if (!ctx) return;
       const now = ctx.currentTime;
       [0, 0.18, 0.36].forEach((delay, idx) => {
         const osc = ctx.createOscillator();
@@ -73,8 +108,10 @@ class AudioFXEngine {
 
   // Soft sci-fi click
   playClick() {
+    this.unlock();
     try {
       const ctx = this.getContext();
+      if (!ctx) return;
       const now = ctx.currentTime;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -99,14 +136,33 @@ class AudioFXEngine {
 
 export const soundFX = new AudioFXEngine();
 
-// Speech Synthesis (Text to Speech) Helper
+// Robust Speech Synthesis with Voice Cache & Auto Recovery
 export class SpeechService {
-  private static synth = typeof window !== 'undefined' ? window.speechSynthesis : null;
+  private static cachedVoices: SpeechSynthesisVoice[] = [];
   private static isSpeaking = false;
+  private static initialized = false;
+
+  private static initVoices() {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+    if (this.initialized) return;
+    this.initialized = true;
+
+    const loadVoices = () => {
+      this.cachedVoices = window.speechSynthesis.getVoices();
+    };
+
+    loadVoices();
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+  }
 
   static getVoices(): SpeechSynthesisVoice[] {
-    if (!this.synth) return [];
-    return this.synth.getVoices();
+    this.initVoices();
+    if (this.cachedVoices.length === 0 && typeof window !== 'undefined' && window.speechSynthesis) {
+      this.cachedVoices = window.speechSynthesis.getVoices();
+    }
+    return this.cachedVoices;
   }
 
   static speak(
@@ -120,17 +176,25 @@ export class SpeechService {
       onError?: (err: any) => void;
     } = {}
   ) {
-    if (!this.synth) {
+    if (typeof window === 'undefined' || !window.speechSynthesis) {
       options.onEnd?.();
       return;
     }
 
-    // Cancel current speech if any
-    this.synth.cancel();
+    this.initVoices();
+    soundFX.unlock();
 
-    // Clean markdown symbols for cleaner pronunciation
+    // Cancel any previous hanging speech and resume engine
+    try {
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.resume();
+    } catch {
+      // ignore
+    }
+
+    // Clean markdown and formatting
     const cleanText = text
-      .replace(/[*#_`~>\[\]\(\)]/g, ' ')
+      .replace(/[*#_`~>\[\]\(\)\{\}\\]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
 
@@ -145,24 +209,39 @@ export class SpeechService {
 
     const voices = this.getVoices();
     const lang = options.lang || 'auto';
-
-    // Auto-detect Bengali or match requested lang
     const isBengaliText = /[\u0980-\u09FF]/.test(cleanText);
-    const targetLangCode = lang !== 'auto' ? lang : (isBengaliText ? 'bn' : 'en');
 
-    // Find best matching voice
-    const matchedVoice = voices.find(v => {
-      if (targetLangCode.startsWith('bn')) {
-        return v.lang.startsWith('bn') || v.name.toLowerCase().includes('bangla') || v.name.toLowerCase().includes('bengali');
-      }
-      return v.lang.toLowerCase().startsWith(targetLangCode.toLowerCase());
-    }) || voices.find(v => v.lang.includes('en')) || voices[0];
+    // Voice matching logic
+    let targetLangCode = lang !== 'auto' ? lang : isBengaliText ? 'bn' : 'en';
+
+    let matchedVoice: SpeechSynthesisVoice | undefined;
+    if (targetLangCode.startsWith('bn')) {
+      matchedVoice = voices.find(
+        (v) =>
+          v.lang.toLowerCase().startsWith('bn') ||
+          v.name.toLowerCase().includes('bangla') ||
+          v.name.toLowerCase().includes('bengali')
+      );
+    } else {
+      matchedVoice = voices.find((v) =>
+        v.lang.toLowerCase().startsWith(targetLangCode.toLowerCase())
+      );
+    }
+
+    // If specific language voice not installed on OS, fallback to any English or primary system voice
+    if (!matchedVoice && voices.length > 0) {
+      matchedVoice =
+        voices.find((v) => v.lang.toLowerCase().startsWith('en')) ||
+        voices.find((v) => v.default) ||
+        voices[0];
+    }
 
     if (matchedVoice) {
       utterance.voice = matchedVoice;
       utterance.lang = matchedVoice.lang;
     } else {
-      utterance.lang = targetLangCode.startsWith('bn') ? 'bn-BD' : 'en-US';
+      // Fallback BCP 47
+      utterance.lang = isBengaliText ? 'bn-BD' : 'en-US';
     }
 
     utterance.onstart = () => {
@@ -176,38 +255,61 @@ export class SpeechService {
     };
 
     utterance.onerror = (e) => {
+      console.warn('SpeechSynthesis error:', e);
       this.isSpeaking = false;
       options.onError?.(e);
       options.onEnd?.();
     };
 
-    this.synth.speak(utterance);
+    // Chrome pause bug fix: resume before and after speak
+    try {
+      window.speechSynthesis.resume();
+      window.speechSynthesis.speak(utterance);
+      setTimeout(() => {
+        if (window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
+        }
+      }, 50);
+    } catch (err) {
+      console.warn('Failed to invoke speak:', err);
+      options.onEnd?.();
+    }
   }
 
   static stop() {
-    if (this.synth) {
-      this.synth.cancel();
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch {
+        // ignore
+      }
       this.isSpeaking = false;
     }
   }
 
-  static getIsSpeaking() {
+  static getIsSpeaking(): boolean {
     return this.isSpeaking;
   }
 }
 
-// Speech Recognition (Speech to Text) Helper
+// Robust Speech Recognition
 export class VoiceRecognitionService {
   private recognition: any = null;
   private isListening = false;
 
   constructor() {
     if (typeof window !== 'undefined') {
-      const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const SpeechRec =
+        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRec) {
-        this.recognition = new SpeechRec();
-        this.recognition.continuous = false;
-        this.recognition.interimResults = true;
+        try {
+          this.recognition = new SpeechRec();
+          this.recognition.continuous = false;
+          this.recognition.interimResults = true;
+          this.recognition.maxAlternatives = 1;
+        } catch {
+          this.recognition = null;
+        }
       }
     }
   }
@@ -227,6 +329,8 @@ export class VoiceRecognitionService {
       return;
     }
 
+    soundFX.unlock();
+
     try {
       this.recognition.lang = lang;
       this.recognition.onresult = (event: any) => {
@@ -241,14 +345,16 @@ export class VoiceRecognitionService {
           }
         }
 
-        if (finalTranscript) {
-          onResult(finalTranscript, true);
-        } else if (interimTranscript) {
-          onResult(interimTranscript, false);
+        if (finalTranscript.trim()) {
+          onResult(finalTranscript.trim(), true);
+        } else if (interimTranscript.trim()) {
+          onResult(interimTranscript.trim(), false);
         }
       };
 
       this.recognition.onerror = (event: any) => {
+        console.warn('SpeechRecognition error:', event.error);
+        this.isListening = false;
         onError(event.error);
       };
 
@@ -259,8 +365,9 @@ export class VoiceRecognitionService {
 
       this.recognition.start();
       this.isListening = true;
-    } catch (e) {
-      onError(e);
+    } catch (e: any) {
+      this.isListening = false;
+      onError(e?.message || 'Could not start microphone');
     }
   }
 
@@ -273,5 +380,9 @@ export class VoiceRecognitionService {
       }
       this.isListening = false;
     }
+  }
+
+  getIsListening() {
+    return this.isListening;
   }
 }

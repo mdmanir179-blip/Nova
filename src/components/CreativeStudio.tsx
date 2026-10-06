@@ -21,7 +21,7 @@ export const CreativeStudio: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'image' | 'product' | 'video'>('image');
 
   // 1. Image Generator & Customizer State
-  const [imagePrompt, setImagePrompt] = useState<string>('Futuristic cyberpunk holographic drone flying over Dhaka megacity at night');
+  const [imagePrompt, setImagePrompt] = useState<string>('');
   const [imageAspectRatio, setImageAspectRatio] = useState<string>('1:1');
   const [imageStyle, setImageStyle] = useState<string>('cinematic 8k photorealistic');
   const [generatedImage, setGeneratedImage] = useState<string>('');
@@ -29,7 +29,7 @@ export const CreativeStudio: React.FC = () => {
 
   // Upload & Customization State
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
-  const [customEditPrompt, setCustomEditPrompt] = useState<string>('Add neon glowing cybernetic visor and enhance luxury cinematic lighting');
+  const [customEditPrompt, setCustomEditPrompt] = useState<string>('');
   const [isCustomizingImg, setIsCustomizingImg] = useState<boolean>(false);
   const [customizedResult, setCustomizedResult] = useState<string | null>(null);
 
@@ -42,14 +42,14 @@ export const CreativeStudio: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // 2. Product Creator State
-  const [productIdea, setProductIdea] = useState<string>('স্মার্ট এআই চশমা যা চোখের পলকে বাংলা অনুবাদ ও রিয়েল-টাইম তথ্য দেখায় (Smart AI Glasses)');
-  const [productCategory, setProductCategory] = useState<string>('Wearable Tech');
+  const [productIdea, setProductIdea] = useState<string>('');
+  const [productCategory, setProductCategory] = useState<string>('Wearable Tech & IoT');
   const [isCreatingProduct, setIsCreatingProduct] = useState<boolean>(false);
   const [createdProduct, setCreatedProduct] = useState<any>(null);
   const [productMockupImg, setProductMockupImg] = useState<string>('');
 
   // 3. Video Editor State
-  const [videoTitle, setVideoTitle] = useState<string>('AI Assistants: The Future of Productivity in 2026');
+  const [videoTitle, setVideoTitle] = useState<string>('');
   const [videoFormat, setVideoFormat] = useState<string>('Reels / TikTok (9:16)');
   const [videoTone, setVideoTone] = useState<string>('High-Energy Cyberpunk');
   const [videoDuration, setVideoDuration] = useState<number>(30);

@@ -30,6 +30,7 @@ export default function App() {
   const [spokenText, setSpokenText] = useState<string>('');
   const [selectedLanguage, setSelectedLanguage] = useState<string>('bn-BD');
   const [currentTime, setCurrentTime] = useState<string>('');
+  const [externalVoicePrompt, setExternalVoicePrompt] = useState<string>('');
 
   const recognitionServiceRef = useRef<VoiceRecognitionService | null>(null);
 
@@ -56,7 +57,7 @@ export default function App() {
       setAgentStatus('idle');
     } else {
       if (!recognitionServiceRef.current?.isSupported()) {
-        alert('Web Speech Recognition is not supported in this browser. You can still type your prompt below.');
+        alert('Web Speech Recognition is not supported in this browser. You can still type your prompt in the box.');
         return;
       }
       setIsMicActive(true);
@@ -67,8 +68,8 @@ export default function App() {
           if (isFinal) {
             setIsMicActive(false);
             setAgentStatus('thinking');
-            // Auto submit speech to chat
-            submitVoicePrompt(transcript);
+            // Pipe transcript to Assistant Core
+            setExternalVoicePrompt(transcript);
           }
         },
         (err) => {
@@ -84,39 +85,6 @@ export default function App() {
         },
         selectedLanguage === 'auto' ? 'bn-BD' : selectedLanguage
       );
-    }
-  };
-
-  const submitVoicePrompt = async (transcript: string) => {
-    try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: transcript,
-          language: selectedLanguage,
-          voiceMode: true,
-        }),
-      });
-      const data = await res.json();
-      const reply = data.reply || 'আমি শুনতে পাচ্ছি, বলুন।';
-
-      setSpokenText(reply);
-      setAgentStatus('speaking');
-
-      SpeechService.speak(reply, {
-        lang: selectedLanguage,
-        rate: 1.0,
-        onEnd: () => {
-          setAgentStatus('idle');
-          setSpokenText('');
-        },
-        onError: () => {
-          setAgentStatus('idle');
-        },
-      });
-    } catch {
-      setAgentStatus('idle');
     }
   };
 
@@ -289,6 +257,7 @@ export default function App() {
                 onToggleMic={handleToggleMic}
                 selectedLanguage={selectedLanguage}
                 onLanguageChange={setSelectedLanguage}
+                externalUserMessage={externalVoicePrompt}
               />
             </div>
           </div>
