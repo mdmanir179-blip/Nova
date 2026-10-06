@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import { soundFX, SpeechService } from '../utils/audioEngine';
 import { sendChatMessage, ChatMessage } from '../utils/aiClientEngine';
+import { parseVoiceTaskCommand, scheduleNewTask } from '../utils/taskManager';
+import { backgroundSentinel } from '../utils/backgroundSentinel';
 import { MSLogo } from './MSLogo';
 
 interface VoiceAssistantCoreProps {
@@ -110,13 +112,40 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
     onStatusChange?.('thinking');
 
     try {
-      const history = messages.slice(-6).map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
+      // 1. Check if user is issuing a Voice Task / Reminder Command
+      const taskParsed = parseVoiceTaskCommand(text);
+      let reply = '';
 
-      // Send to resilient AI engine
-      const reply = await sendChatMessage(text, history, selectedLanguage);
+      if (taskParsed.isTask) {
+        // Automatically schedule the task
+        const scheduled = scheduleNewTask({
+          title: taskParsed.title,
+          minutesOffset: taskParsed.minutesOffset,
+          voiceAnnouncement: taskParsed.announcement,
+          category: taskParsed.category,
+          priority: taskParsed.priority,
+          language: selectedLanguage,
+        });
+
+        // Request notifications if not yet granted
+        if (backgroundSentinel.getNotificationPermission() !== 'granted') {
+          backgroundSentinel.requestNotificationPermission().catch(() => {});
+        }
+
+        if (taskParsed.detectedLang === 'bn') {
+          reply = `⏰ টাস্ক শিডিউল সম্পন্ন হয়েছে!\n\n📌 টাস্ক: ${scheduled.title}\n⏱️ সময়: ${taskParsed.minutesOffset} মিনিট পর (${new Date(scheduled.scheduledTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})\n🛡️ স্ক্রিন-অফ সেন্টিনেল: সক্রিয় ✓ আপনার মোবাইল স্ক্রিন লাইট অফ থাকলেও বা ফোন লক থাকলেও সঠিক সময়ে উচ্চ এলার্ম, কম্পন এবং লক-স্ক্রিন নোটিফিকেশনের মাধ্যমে আপনাকে জানিয়ে দেওয়া হবে।`;
+        } else {
+          reply = `⏰ Task Scheduled Successfully!\n\n📌 Task: ${scheduled.title}\n⏱️ Time: In ${taskParsed.minutesOffset} minute(s) (${new Date(scheduled.scheduledTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})\n🛡️ Screen-Off Sentinel: ACTIVE ✓ Even if your phone screen goes to sleep or you lock your device, MS AI will alert you with loud alarm, vibration, and lock-screen notification.`;
+        }
+      } else {
+        const history = messages.slice(-6).map((m) => ({
+          role: m.role,
+          content: m.content,
+        }));
+
+        // Send to resilient AI engine
+        reply = await sendChatMessage(text, history, selectedLanguage);
+      }
 
       const aiMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),

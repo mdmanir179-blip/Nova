@@ -28,6 +28,8 @@ interface AgentVisualizerProps {
   spokenText?: string;
   assistantName?: string;
   onScreenLightChange?: (color: ScreenLightColor, intensity: ScreenLightIntensity) => void;
+  animationMode?: AnimationMode;
+  onAnimationModeChange?: (mode: AnimationMode) => void;
 }
 
 export const AgentVisualizer: React.FC<AgentVisualizerProps> = ({
@@ -40,6 +42,8 @@ export const AgentVisualizer: React.FC<AgentVisualizerProps> = ({
   spokenText = '',
   assistantName = 'MS AI',
   onScreenLightChange,
+  animationMode,
+  onAnimationModeChange,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -48,9 +52,15 @@ export const AgentVisualizer: React.FC<AgentVisualizerProps> = ({
   const animFrameRef = useRef<number | null>(null);
 
   // Animation & Screen Light Customization State
-  const [animMode, setAnimMode] = useState<AnimationMode>(() => {
+  const [internalAnimMode, setInternalAnimMode] = useState<AnimationMode>(() => {
     return (typeof window !== 'undefined' ? localStorage.getItem('ms_anim_mode') as AnimationMode : null) || 'quantum';
   });
+  const animMode = animationMode || internalAnimMode;
+
+  const setAnimMode = (mode: AnimationMode) => {
+    setInternalAnimMode(mode);
+    onAnimationModeChange?.(mode);
+  };
   const [screenLightColor, setScreenLightColor] = useState<ScreenLightColor>(() => {
     return (typeof window !== 'undefined' ? localStorage.getItem('ms_screen_light_color') as ScreenLightColor : null) || 'cyan';
   });

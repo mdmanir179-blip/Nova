@@ -16,16 +16,29 @@ import {
   Wand2,
   Download,
   Smartphone,
-  Sun
+  Sun,
+  Palette,
+  Sliders,
+  CheckCircle2,
+  Zap,
+  RotateCcw
 } from 'lucide-react';
-import { AgentVisualizer, ScreenLightColor, ScreenLightIntensity } from './components/AgentVisualizer';
+import {
+  AgentVisualizer,
+  AnimationMode,
+  ScreenLightColor,
+  ScreenLightIntensity
+} from './components/AgentVisualizer';
 import { VoiceAssistantCore } from './components/VoiceAssistantCore';
 import { WhatsAppAutoReplier } from './components/WhatsAppAutoReplier';
 import { VoiceReminders } from './components/VoiceReminders';
 import { CreativeStudio } from './components/CreativeStudio';
 import { AppInstallModal } from './components/AppInstallModal';
+import { GlobalAlarmModal } from './components/GlobalAlarmModal';
 import { MSLogo } from './components/MSLogo';
 import { soundFX, VoiceRecognitionService, SpeechService } from './utils/audioEngine';
+import { TaskReminder, getStoredTasks, saveStoredTasks } from './utils/taskManager';
+import { backgroundSentinel } from './utils/backgroundSentinel';
 
 export default function App() {
   const [activeNav, setActiveNav] = useState<'assistant' | 'whatsapp' | 'reminders' | 'creative'>('assistant');
@@ -37,7 +50,10 @@ export default function App() {
   const [currentTime, setCurrentTime] = useState<string>('');
   const [externalVoicePrompt, setExternalVoicePrompt] = useState<string>('');
 
-  // Ambient Screen Lighting State
+  // Animation Style & Screen Light Customization State
+  const [animationMode, setAnimationMode] = useState<AnimationMode>(() => {
+    return (typeof window !== 'undefined' ? localStorage.getItem('ms_anim_mode') as AnimationMode : null) || 'quantum';
+  });
   const [ambientLightColor, setAmbientLightColor] = useState<ScreenLightColor>(() => {
     return (typeof window !== 'undefined' ? localStorage.getItem('ms_screen_light_color') as ScreenLightColor : null) || 'cyan';
   });
@@ -49,7 +65,41 @@ export default function App() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState<boolean>(false);
 
+  // Global Active Alarm State (Fires even if screen is off or on another tab!)
+  const [activeAlarmTask, setActiveAlarmTask] = useState<TaskReminder | null>(null);
+
   const recognitionServiceRef = useRef<VoiceRecognitionService | null>(null);
+
+  // Sync animation mode to localStorage
+  const handleAnimationModeChange = (mode: AnimationMode) => {
+    soundFX.playClick();
+    setAnimationMode(mode);
+    try {
+      localStorage.setItem('ms_anim_mode', mode);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleScreenLightColorChange = (color: ScreenLightColor) => {
+    soundFX.playClick();
+    setAmbientLightColor(color);
+    try {
+      localStorage.setItem('ms_screen_light_color', color);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleScreenLightIntensityChange = (intensity: ScreenLightIntensity) => {
+    soundFX.playClick();
+    setAmbientLightIntensity(intensity);
+    try {
+      localStorage.setItem('ms_screen_light_intensity', intensity);
+    } catch {
+      // ignore
+    }
+  };
 
   // Time updater
   useEffect(() => {
@@ -60,6 +110,93 @@ export default function App() {
     const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // Global Background Reminder Checker
+  // Operates continuously across ALL tabs and through the Web Worker ticker (works on screen-off)
+  useEffect(() => {
+    const checkTasks = () => {
+      const now = Date.now();
+      const currentTasks = getStoredTasks();
+      let hasUpdates = false;
+
+      for (const t of currentTasks) {
+        if (!t.completed && !t.notified) {
+          const taskTime = new Date(t.scheduledTime).getTime();
+          if (taskTime <= now) {
+            t.notified = true;
+            hasUpdates = true;
+
+            // 1. Play audible sound alert
+            soundFX.unlock();
+            soundFX.playReminderAlert();
+
+            // 2. Lock-screen notification + mobile vibration
+            backgroundSentinel.showLockScreenAlert(
+              `⏰ MS AI Reminder: ${t.title}`,
+              t.voiceAnnouncement || `Attention! Time for your scheduled task: ${t.title}!`,
+              `ms-task-${t.id}`
+            );
+
+            // 3. Vocalize reminder out loud
+            SpeechService.speak(
+              t.voiceAnnouncement || `Boss! It is time for your task: ${t.title}!`,
+              {
+                lang: t.language || 'en-US',
+                rate: 1.0,
+                pitch: 1.05,
+              }
+            );
+
+            // 4. Pop up the alarm modal
+            setActiveAlarmTask(t);
+          }
+        }
+      }
+
+      if (hasUpdates) {
+        saveStoredTasks([...currentTasks]);
+      }
+    };
+
+    // 1. Subscribe to Web Worker ticker (runs every second even on mobile lock screen)
+    const unsubscribeWorker = backgroundSentinel.addTickListener(checkTasks);
+
+    // 2. Fallback main thread interval
+    const interval = setInterval(checkTasks, 1500);
+
+    // 3. Immediately check when mobile screen turns on / tab becomes visible
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        checkTasks();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      unsubscribeWorker();
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, []);
+
+  const handleDismissAlarm = (taskId: string) => {
+    soundFX.playClick();
+    const tasks = getStoredTasks();
+    const updated = tasks.map((t) => (t.id === taskId ? { ...t, completed: true } : t));
+    saveStoredTasks(updated);
+    setActiveAlarmTask(null);
+  };
+
+  const handleSnoozeAlarm = (taskId: string, mins: number) => {
+    soundFX.playClick();
+    const tasks = getStoredTasks();
+    const newTime = new Date(Date.now() + mins * 60 * 1000).toISOString();
+    const updated = tasks.map((t) =>
+      t.id === taskId ? { ...t, scheduledTime: newTime, notified: false } : t
+    );
+    saveStoredTasks(updated);
+    setActiveAlarmTask(null);
+  };
 
   // Capture PWA install prompt
   useEffect(() => {
@@ -312,7 +449,7 @@ export default function App() {
         {/* Tab 1: Assistant Core */}
         {activeNav === 'assistant' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Visualizer Holographic Centerpiece (5 cols) */}
+            {/* Visualizer Holographic Centerpiece & Quick Controls (5 cols) */}
             <div className="lg:col-span-5 flex flex-col gap-4">
               <AgentVisualizer
                 status={agentStatus}
@@ -322,21 +459,113 @@ export default function App() {
                 onToggleFullscreen={() => setIsFullscreenVisualizer(!isFullscreenVisualizer)}
                 spokenText={spokenText}
                 assistantName="MS AI"
+                animationMode={animationMode}
+                onAnimationModeChange={setAnimationMode}
                 onScreenLightChange={(color, intensity) => {
                   setAmbientLightColor(color);
                   setAmbientLightIntensity(intensity);
                 }}
               />
 
-              {/* Quick agent info */}
-              <div className="p-4 rounded-2xl border border-neutral-800 bg-neutral-900/40 text-xs space-y-2">
-                <span className="font-semibold text-neutral-300 block">
-                  Voice & Screen Light FX:
-                </span>
-                <p className="text-neutral-400 leading-relaxed">
-                  • Click <b>"Screen Light & FX"</b> to switch 3D holographic animations (Quantum Orb, Cyber Matrix, Supernova, Sonic Spectrum).
-                  <br />• Customize ambient screen backlighting (Cyan, Violet, Emerald, Amber, Prism RGB) with adjustable intensity.
-                  <br />• Ambient screen lighting responds and pulses to your voice in real time.
+              {/* QUICK CONTROL BAR: Change Animation & Screen Light Directly */}
+              <div className="p-4 rounded-2xl border border-neutral-800 bg-neutral-900/60 backdrop-blur-md space-y-3.5 text-xs">
+                {/* 1. Animation Style Switcher */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="font-bold text-white flex items-center gap-1.5">
+                      <Layers size={13} className="text-cyan-400" />
+                      Animation Style
+                    </span>
+                    <span className="text-[10px] text-cyan-400 font-mono uppercase font-semibold">
+                      {animationMode}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {[
+                      { id: 'quantum', label: 'Quantum 3D Orb' },
+                      { id: 'matrix', label: 'Cyber Matrix' },
+                      { id: 'supernova', label: 'Supernova' },
+                      { id: 'sonic', label: 'Sonic Spectrum' },
+                    ].map((m) => (
+                      <button
+                        key={m.id}
+                        onClick={() => handleAnimationModeChange(m.id as AnimationMode)}
+                        className={`py-2 px-2.5 rounded-xl text-center text-[11px] font-semibold transition-all cursor-pointer ${
+                          animationMode === m.id
+                            ? 'bg-cyan-500 text-neutral-950 font-bold shadow-md shadow-cyan-500/20'
+                            : 'bg-neutral-950 text-neutral-300 hover:bg-neutral-800 border border-neutral-800'
+                        }`}
+                      >
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 2. Screen Light Ambient Color */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="font-bold text-white flex items-center gap-1.5">
+                      <Sun size={13} className="text-amber-400" />
+                      Screen Light Color
+                    </span>
+                    <span className="text-[10px] text-amber-400 font-mono uppercase font-semibold">
+                      {ambientLightColor}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {[
+                      { id: 'cyan', label: 'Cyan', colorClass: 'bg-cyan-400' },
+                      { id: 'violet', label: 'Violet', colorClass: 'bg-purple-500' },
+                      { id: 'emerald', label: 'Emerald', colorClass: 'bg-emerald-400' },
+                      { id: 'amber', label: 'Amber', colorClass: 'bg-amber-400' },
+                      { id: 'prism', label: 'RGB', colorClass: 'bg-gradient-to-r from-pink-500 via-cyan-400 to-amber-400' },
+                    ].map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => handleScreenLightColorChange(c.id as ScreenLightColor)}
+                        className={`py-1.5 px-1 rounded-xl text-[10px] font-bold text-center border transition-all flex flex-col items-center gap-1 cursor-pointer ${
+                          ambientLightColor === c.id
+                            ? 'border-white text-white bg-neutral-800 shadow-md'
+                            : 'border-neutral-800 text-neutral-400 hover:text-white bg-neutral-950'
+                        }`}
+                      >
+                        <span className={`w-3.5 h-3.5 rounded-full ${c.colorClass}`} />
+                        <span>{c.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 3. Screen Light Intensity */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] text-neutral-400 font-medium">Intensity:</span>
+                    <span className="text-[10px] text-neutral-400 font-mono uppercase">{ambientLightIntensity}</span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {(['off', 'low', 'medium', 'high'] as ScreenLightIntensity[]).map((level) => (
+                      <button
+                        key={level}
+                        onClick={() => handleScreenLightIntensityChange(level)}
+                        className={`py-1.5 text-[10px] uppercase font-bold rounded-xl transition-all cursor-pointer ${
+                          ambientLightIntensity === level
+                            ? 'bg-amber-400 text-neutral-950 shadow-sm'
+                            : 'bg-neutral-950 text-neutral-400 hover:text-white border border-neutral-800'
+                        }`}
+                      >
+                        {level}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Screen-Off Reminder Tip */}
+              <div className="p-3.5 rounded-2xl border border-purple-500/20 bg-purple-950/20 text-xs text-purple-200/90 flex items-start gap-2.5">
+                <ShieldCheck size={18} className="text-purple-400 shrink-0 mt-0.5" />
+                <p className="leading-relaxed">
+                  <b>Voice Task Reminder Active:</b> Speak <i>"Remind me in 5 minutes to call mom"</i> or <i>"৫ মিনিট পর ওষুধ খাব"</i> directly into the mic. MS will alarm you even if your phone screen is turned off or locked!
                 </p>
               </div>
             </div>
@@ -377,6 +606,8 @@ export default function App() {
           onToggleFullscreen={() => setIsFullscreenVisualizer(false)}
           spokenText={spokenText}
           assistantName="MS AI"
+          animationMode={animationMode}
+          onAnimationModeChange={setAnimationMode}
           onScreenLightChange={(color, intensity) => {
             setAmbientLightColor(color);
             setAmbientLightIntensity(intensity);
@@ -390,6 +621,13 @@ export default function App() {
         onClose={() => setIsInstallModalOpen(false)}
         deferredPrompt={deferredPrompt}
         onInstallClick={handleInstallApp}
+      />
+
+      {/* Global Task Reminder Alarm Modal (Pops up immediately on alarm trigger) */}
+      <GlobalAlarmModal
+        task={activeAlarmTask}
+        onDismiss={handleDismissAlarm}
+        onSnooze={handleSnoozeAlarm}
       />
 
       {/* Footer */}

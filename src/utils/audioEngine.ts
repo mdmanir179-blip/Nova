@@ -77,29 +77,29 @@ class AudioFXEngine {
     }
   }
 
-  // Reminder alarm alert sound
+  // Reminder alarm alert sound (loud multi-pulse alert)
   playReminderAlert() {
     this.unlock();
     try {
       const ctx = this.getContext();
       if (!ctx) return;
       const now = ctx.currentTime;
-      [0, 0.18, 0.36].forEach((delay, idx) => {
+      [0, 0.18, 0.36, 0.54, 0.72, 0.90].forEach((delay, idx) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
 
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(idx === 2 ? 1046.5 : 880, now + delay);
+        osc.type = idx % 2 === 0 ? 'sawtooth' : 'triangle';
+        osc.frequency.setValueAtTime(idx % 2 === 0 ? 1174.66 : 987.77, now + delay);
 
         gain.gain.setValueAtTime(0.001, now + delay);
-        gain.gain.linearRampToValueAtTime(0.25, now + delay + 0.04);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.16);
+        gain.gain.linearRampToValueAtTime(0.35, now + delay + 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.15);
 
         osc.connect(gain);
         gain.connect(ctx.destination);
 
         osc.start(now + delay);
-        osc.stop(now + delay + 0.18);
+        osc.stop(now + delay + 0.16);
       });
     } catch {
       // Audio blocked

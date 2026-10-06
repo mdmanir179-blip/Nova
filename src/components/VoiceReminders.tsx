@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Bell,
   Clock,
@@ -10,32 +10,31 @@ import {
   Play,
   RotateCcw,
   Sparkles,
-  AlertTriangle
+  AlertTriangle,
+  Smartphone,
+  ShieldCheck,
+  Moon,
+  Zap,
+  Check,
+  VolumeX,
+  Lock,
+  Mic,
+  MicOff,
+  Radio
 } from 'lucide-react';
-import { soundFX, SpeechService } from '../utils/audioEngine';
-
-export interface TaskReminder {
-  id: string;
-  title: string;
-  scheduledTime: string;
-  voiceAnnouncement: string;
-  category: 'Work' | 'Meeting' | 'Health' | 'Personal';
-  priority: 'High' | 'Normal' | 'Urgent';
-  completed: boolean;
-  notified: boolean;
-  language: string;
-}
+import { soundFX, SpeechService, VoiceRecognitionService } from '../utils/audioEngine';
+import { backgroundSentinel } from '../utils/backgroundSentinel';
+import {
+  TaskReminder,
+  getStoredTasks,
+  saveStoredTasks,
+  scheduleNewTask,
+  parseVoiceTaskCommand
+} from '../utils/taskManager';
 
 export const VoiceReminders: React.FC = () => {
-  // Clean tasks state: NO demo data! Loaded from localStorage
-  const [tasks, setTasks] = useState<TaskReminder[]>(() => {
-    try {
-      const saved = localStorage.getItem('ms_user_tasks') || localStorage.getItem('nova_user_tasks');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  // Tasks state synchronized with centralized storage
+  const [tasks, setTasks] = useState<TaskReminder[]>(() => getStoredTasks());
 
   const [newTitle, setNewTitle] = useState('');
   const [newAnnouncement, setNewAnnouncement] = useState('');
@@ -45,60 +44,206 @@ export const VoiceReminders: React.FC = () => {
   const [newLang, setNewLang] = useState('en-US');
   const [activeVoiceAlert, setActiveVoiceAlert] = useState<string | null>(null);
 
-  // Sync to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem('ms_user_tasks', JSON.stringify(tasks));
-    } catch {
-      // ignore
-    }
-  }, [tasks]);
+  // Screen-off & Background Protection State
+  const [notificationPerm, setNotificationPerm] = useState<NotificationPermission>('default');
+  const [isWakeLockActive, setIsWakeLockActive] = useState<boolean>(false);
+  const [testCountdown, setTestCountdown] = useState<number | null>(null);
 
-  // Background ticker checking for reminders every 4 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = Date.now();
-      setTasks((prevTasks) =>
-        prevTasks.map((t) => {
-          if (!t.completed && !t.notified) {
-            const taskTime = new Date(t.scheduledTime).getTime();
-            if (taskTime <= now) {
-              triggerVoiceNotification(t);
-              return { ...t, notified: true };
-            }
-          }
-          return t;
-        })
-      );
-    }, 4000);
+  // Voice Task Recorder State
+  const [isRecordingTask, setIsRecordingTask] = useState<boolean>(false);
+  const [recordedTranscript, setRecordedTranscript] = useState<string>('');
+  const [voiceRecordFeedback, setVoiceRecordFeedback] = useState<string>('');
+  const voiceRecRef = useRef<VoiceRecognitionService | null>(null);
 
-    return () => clearInterval(interval);
+  // Check initial notification permission & setup voice rec
+  useEffect(() => {
+    setNotificationPerm(backgroundSentinel.getNotificationPermission());
+    backgroundSentinel.enableBackgroundKeepAlive();
+    voiceRecRef.current = new VoiceRecognitionService();
   }, []);
 
+  // Listen to external task updates (e.g. from VoiceAssistantCore)
+  useEffect(() => {
+    const handleSync = (e: any) => {
+      if (e.detail) {
+        setTasks(e.detail);
+      } else {
+        setTasks(getStoredTasks());
+      }
+    };
+    window.addEventListener('ms_tasks_updated', handleSync);
+    window.addEventListener('storage', handleSync);
+    return () => {
+      window.removeEventListener('ms_tasks_updated', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
+  }, []);
+
+  // Trigger Multi-Channel Alert: Sound + Lock Screen Notification + Voice Announcement
   const triggerVoiceNotification = (task: TaskReminder) => {
+    soundFX.unlock();
     soundFX.playReminderAlert();
     setActiveVoiceAlert(task.title);
 
     const message = task.voiceAnnouncement || `Attention! It is time for your task: ${task.title}!`;
 
+    // 1. Show Lock-Screen System Notification & Vibrate phone
+    backgroundSentinel.showLockScreenAlert(
+      `⏰ MS AI Reminder: ${task.title}`,
+      message,
+      `ms-reminder-${task.id}`
+    );
+
+    // 2. Vocalize announcement via SpeechService
     SpeechService.speak(message, {
       lang: task.language || 'en-US',
       rate: 1.0,
       pitch: 1.05,
       onEnd: () => {
-        setTimeout(() => setActiveVoiceAlert(null), 3000);
+        setTimeout(() => setActiveVoiceAlert(null), 5000);
       },
     });
   };
 
-  const handleTestVoice = (text: string, lang: string) => {
+  // Voice Task Recorder: User speaks and MS automatically schedules the reminder!
+  const handleToggleVoiceTaskRecord = () => {
     soundFX.unlock();
+    soundFX.playActivateSound();
+
+    if (isRecordingTask) {
+      voiceRecRef.current?.stop();
+      setIsRecordingTask(false);
+      return;
+    }
+
+    if (!voiceRecRef.current?.isSupported()) {
+      alert('Speech recognition is not supported in this browser. Please use the form below.');
+      return;
+    }
+
+    setIsRecordingTask(true);
+    setRecordedTranscript('');
+    setVoiceRecordFeedback('Listening... Speak your task (e.g., "Remind me in 5 minutes to call doctor" or "১০ মিনিট পর ওষুধ খাওয়া")');
+
+    voiceRecRef.current.start(
+      (transcript, isFinal) => {
+        setRecordedTranscript(transcript);
+        if (isFinal) {
+          setIsRecordingTask(false);
+          processVoiceTaskTranscript(transcript);
+        }
+      },
+      (err) => {
+        console.warn('Voice recording error:', err);
+        setIsRecordingTask(false);
+        setVoiceRecordFeedback('Could not hear clearly. Please try again or type below.');
+      },
+      () => {
+        setIsRecordingTask(false);
+      },
+      newLang === 'bn-BD' ? 'bn-BD' : 'en-US'
+    );
+  };
+
+  const processVoiceTaskTranscript = (transcript: string) => {
+    if (!transcript.trim()) return;
+
+    const parsed = parseVoiceTaskCommand(transcript);
+
+    if (parsed.isTask) {
+      // Schedule immediately
+      const scheduled = scheduleNewTask({
+        title: parsed.title,
+        minutesOffset: parsed.minutesOffset,
+        voiceAnnouncement: parsed.announcement,
+        category: parsed.category,
+        priority: parsed.priority,
+        language: newLang,
+      });
+
+      setVoiceRecordFeedback(
+        `✓ Task set: "${scheduled.title}" in ${parsed.minutesOffset} minute(s)! Screen-off alert armed.`
+      );
+
+      soundFX.playActivateSound();
+
+      // Vocalize confirmation
+      const confirmSpeech = parsed.detectedLang === 'bn'
+        ? `টাস্ক শিডিউল হয়েছে: ${scheduled.title}, ${parsed.minutesOffset} মিনিট পর। স্ক্রিন লাইট অফ থাকলেও এলার্ম বাজবে।`
+        : `Task scheduled: ${scheduled.title} in ${parsed.minutesOffset} minutes. Alert will sound even if screen is locked.`;
+
+      SpeechService.speak(confirmSpeech, { lang: newLang });
+
+      // Refresh task list
+      setTasks(getStoredTasks());
+    } else {
+      // Pre-fill form if not fully detected as a command
+      setNewTitle(transcript.trim());
+      setVoiceRecordFeedback(`Captured: "${transcript.trim()}". Choose time offset and click Set Reminder.`);
+    }
+  };
+
+  // Request Notification Permission
+  const handleEnableNotifications = async () => {
     soundFX.playClick();
-    SpeechService.speak(text, {
-      lang: lang || 'en-US',
-      rate: 1.0,
-      pitch: 1.05,
-    });
+    const perm = await backgroundSentinel.requestNotificationPermission();
+    setNotificationPerm(perm);
+    if (perm === 'granted') {
+      soundFX.playActivateSound();
+      backgroundSentinel.showLockScreenAlert(
+        'MS AI Screen-Off Alerts Active ✓',
+        'Your phone will now receive reminders even when your screen is locked or turned off.'
+      );
+    }
+  };
+
+  // Toggle Screen WakeLock
+  const handleToggleWakeLock = async () => {
+    soundFX.playClick();
+    if (isWakeLockActive) {
+      backgroundSentinel.releaseWakeLock();
+      setIsWakeLockActive(false);
+    } else {
+      const success = await backgroundSentinel.requestWakeLock();
+      setIsWakeLockActive(success);
+      if (success) {
+        soundFX.playActivateSound();
+      }
+    }
+  };
+
+  // Test 5-Second Screen-Off Alert
+  const handleTestScreenOffAlert = () => {
+    soundFX.playActivateSound();
+    backgroundSentinel.enableBackgroundKeepAlive();
+
+    if (notificationPerm !== 'granted') {
+      backgroundSentinel.requestNotificationPermission().then(setNotificationPerm);
+    }
+
+    setTestCountdown(5);
+    const targetTime = Date.now() + 5000;
+
+    const timer = setInterval(() => {
+      const remaining = Math.round((targetTime - Date.now()) / 1000);
+      if (remaining <= 0) {
+        clearInterval(timer);
+        setTestCountdown(null);
+
+        // Fire the test alarm
+        soundFX.playReminderAlert();
+        backgroundSentinel.showLockScreenAlert(
+          '⏰ MS AI Screen-Off Test Alert!',
+          'Screen-off protection is fully active! Your reminders will alert you anytime.'
+        );
+        SpeechService.speak('Boss, your screen-off reminder is working perfectly!', {
+          lang: newLang,
+          rate: 1.0,
+        });
+      } else {
+        setTestCountdown(remaining);
+      }
+    }, 1000);
   };
 
   const handleAddTask = (e: React.FormEvent) => {
@@ -106,43 +251,46 @@ export const VoiceReminders: React.FC = () => {
     if (!newTitle.trim()) return;
 
     soundFX.playActivateSound();
-    const targetDate = new Date(Date.now() + newMinutesOffset * 60 * 1000);
-    const newTask: TaskReminder = {
-      id: Date.now().toString(),
+
+    const scheduled = scheduleNewTask({
       title: newTitle.trim(),
-      scheduledTime: targetDate.toISOString(),
+      minutesOffset: newMinutesOffset,
       voiceAnnouncement:
         newAnnouncement.trim() ||
         `Boss, it is time for your task: ${newTitle.trim()}!`,
       category: newCategory,
       priority: newPriority,
-      completed: false,
-      notified: false,
       language: newLang,
-    };
+    });
 
-    setTasks((prev) => [newTask, ...prev]);
+    setTasks(getStoredTasks());
     setNewTitle('');
     setNewAnnouncement('');
+
+    SpeechService.speak(
+      `Reminder set for ${scheduled.title} in ${newMinutesOffset} minutes.`,
+      { lang: newLang }
+    );
   };
 
   const toggleTaskCompleted = (id: string) => {
     soundFX.playClick();
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t))
-    );
+    const updated = tasks.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t));
+    setTasks(updated);
+    saveStoredTasks(updated);
   };
 
   const deleteTask = (id: string) => {
     soundFX.playClick();
-    setTasks((prev) => prev.filter((t) => t.id !== id));
+    const updated = tasks.filter((t) => t.id !== id);
+    setTasks(updated);
+    saveStoredTasks(updated);
   };
 
   const clearAllTasks = () => {
     soundFX.playClick();
     setTasks([]);
-    localStorage.removeItem('ms_user_tasks');
-    localStorage.removeItem('nova_user_tasks');
+    saveStoredTasks([]);
   };
 
   return (
@@ -171,31 +319,117 @@ export const VoiceReminders: React.FC = () => {
         </div>
       )}
 
-      {/* Header */}
-      <div className="p-5 rounded-2xl border border-neutral-800 bg-neutral-900/60 backdrop-blur-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400">
-            <Bell size={22} />
+      {/* Screen-Off & Lock-Screen Sentinel Status Header */}
+      <div className="p-5 rounded-2xl border border-cyan-500/30 bg-gradient-to-r from-neutral-900/90 via-[#07101e] to-neutral-900/90 backdrop-blur-md space-y-3">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
+              <Lock size={22} className="animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-base text-white">
+                  Mobile Screen-Off & Background Reminder Sentinel
+                </h3>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-bold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  ACTIVE
+                </span>
+              </div>
+              <p className="text-xs text-neutral-400">
+                Guarantees you receive loud alarms, vibration, and lock-screen alerts even when your phone screen light is turned off or locked.
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="font-bold text-lg text-white">Voice Task Reminders</h3>
-            <p className="text-xs text-neutral-400">
-              Schedule your daily tasks and meetings. MS will vocalize reminders out loud when each deadline arrives.
-            </p>
+
+          {/* Action buttons */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Enable Notification Button */}
+            {notificationPerm !== 'granted' ? (
+              <button
+                onClick={handleEnableNotifications}
+                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black flex items-center gap-1.5 transition-colors cursor-pointer shadow-md shadow-amber-500/20"
+              >
+                <Bell size={14} />
+                <span>Enable Lock-Screen Alerts</span>
+              </button>
+            ) : (
+              <div className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                <Check size={14} className="text-emerald-400" />
+                <span>Lock-Screen Alerts Allowed ✓</span>
+              </div>
+            )}
+
+            {/* Test 5s Screen-Off Alert */}
+            <button
+              onClick={handleTestScreenOffAlert}
+              disabled={testCountdown !== null}
+              className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Test reminder firing with phone screen locked"
+            >
+              <Zap size={14} className="text-cyan-400" />
+              <span>
+                {testCountdown !== null
+                  ? `Lock Screen Now! (${testCountdown}s)`
+                  : 'Test 5s Screen-Off Alarm'}
+              </span>
+            </button>
+
+            {/* Keep Screen Awake Toggle (WakeLock) */}
+            <button
+              onClick={handleToggleWakeLock}
+              className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-colors flex items-center gap-1.5 cursor-pointer ${
+                isWakeLockActive
+                  ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
+                  : 'bg-neutral-900 text-neutral-400 border-neutral-800 hover:text-white'
+              }`}
+              title="Prevent phone screen from going dark"
+            >
+              <Moon size={14} className={isWakeLockActive ? 'text-purple-400' : ''} />
+              <span>{isWakeLockActive ? 'Keep-Awake: ON' : 'Keep-Awake'}</span>
+            </button>
           </div>
         </div>
 
-        {tasks.length > 0 && (
-          <button
-            onClick={clearAllTasks}
-            className="text-xs text-neutral-400 hover:text-rose-400 flex items-center gap-1 transition-colors self-start sm:self-auto cursor-pointer"
-          >
-            <Trash2 size={13} />
-            <span>Clear All</span>
-          </button>
-        )}
+        {/* Live helper tip for mobile users */}
+        <div className="text-[11px] text-neutral-400 bg-neutral-950/60 p-2.5 rounded-xl border border-neutral-800/80 flex items-center justify-between">
+          <span>
+            💡 <b>Screen-Off Assurance:</b> MS AI runs a background Web Worker & media sentinel session. Even if your phone is in your pocket with the display off, it will vibrate and vocalize alarms on schedule.
+          </span>
+        </div>
       </div>
 
+      {/* NEW: Dedicated Voice Task Recorder Card */}
+      <div className="p-4 rounded-2xl border border-purple-500/30 bg-gradient-to-r from-purple-950/30 via-neutral-950 to-neutral-950 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="space-y-1 text-center md:text-left">
+          <div className="flex items-center justify-center md:justify-start gap-2">
+            <Radio size={16} className="text-purple-400 animate-pulse" />
+            <h4 className="text-sm font-bold text-white">Voice Task Recorder (কথা বলে টাস্ক দিন)</h4>
+          </div>
+          <p className="text-xs text-neutral-400">
+            Tap the button and speak your task. MS AI automatically extracts the title, sets the time, and arms screen-off protection.
+          </p>
+          {voiceRecordFeedback && (
+            <p className="text-xs text-cyan-300 font-medium bg-cyan-950/40 px-3 py-1.5 rounded-lg border border-cyan-800/40 inline-block">
+              {voiceRecordFeedback}
+            </p>
+          )}
+        </div>
+
+        <button
+          onClick={handleToggleVoiceTaskRecord}
+          className={`px-5 py-3 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-lg shrink-0 ${
+            isRecordingTask
+              ? 'bg-rose-500 hover:bg-rose-600 text-white animate-pulse shadow-rose-500/30'
+              : 'bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white shadow-purple-500/25'
+          }`}
+        >
+          {isRecordingTask ? <MicOff size={16} /> : <Mic size={16} />}
+          <span>{isRecordingTask ? 'Listening... (Speak Now)' : 'Record Task with Voice'}</span>
+        </button>
+      </div>
+
+      {/* Main Grid: Form (5 cols) & Tasks List (7 cols) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left (5 cols): Add New Reminder Form */}
         <div className="lg:col-span-5 p-5 rounded-2xl border border-neutral-800 bg-neutral-900/50 space-y-4">
@@ -211,7 +445,7 @@ export const VoiceReminders: React.FC = () => {
                 type="text"
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                placeholder="e.g. Client Zoom Meeting, Drink Water, Submit Project"
+                placeholder="e.g. Client Zoom Meeting, Drink Water, Medicine"
                 className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:border-purple-500"
                 required
               />
@@ -219,13 +453,13 @@ export const VoiceReminders: React.FC = () => {
 
             <div>
               <label className="text-xs text-neutral-400 block mb-1">
-                Voice Announcement (What MS should speak out loud)
+                Voice Announcement (What MS should vocalize out loud)
               </label>
               <textarea
                 value={newAnnouncement}
                 onChange={(e) => setNewAnnouncement(e.target.value)}
                 rows={2}
-                placeholder="e.g. Boss! Your meeting starts right now, please join the call."
+                placeholder="e.g. Boss! Your meeting starts right now, please check your notes."
                 className="w-full p-3 text-xs rounded-xl bg-neutral-950 border border-neutral-800 text-white focus:outline-none focus:border-purple-500 resize-none"
               />
             </div>
@@ -318,9 +552,20 @@ export const VoiceReminders: React.FC = () => {
               <Calendar size={16} className="text-purple-400" />
               Active Reminders & Schedules
             </h4>
-            <span className="text-xs font-mono text-neutral-400">
-              {tasks.length} total
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono text-neutral-400">
+                {tasks.length} total
+              </span>
+              {tasks.length > 0 && (
+                <button
+                  onClick={clearAllTasks}
+                  className="text-xs text-neutral-400 hover:text-rose-400 flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                  <Trash2 size={13} />
+                  <span>Clear</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {tasks.length === 0 ? (
@@ -330,7 +575,7 @@ export const VoiceReminders: React.FC = () => {
                 No reminders scheduled yet
               </p>
               <p className="text-[11px] text-neutral-500">
-                Create a reminder on the left and MS will vocalize it when the time arrives.
+                Speak a task above or fill the form. MS will alert you with loud alarm and vibration even if your screen is locked.
               </p>
             </div>
           ) : (
@@ -368,62 +613,53 @@ export const VoiceReminders: React.FC = () => {
                             className={`text-xs font-semibold block ${
                               task.completed
                                 ? 'line-through text-neutral-500'
-                                : 'text-neutral-100'
+                                : 'text-white'
                             }`}
                           >
                             {task.title}
                           </span>
-
-                          <p className="text-[11px] text-neutral-400">
-                            {task.voiceAnnouncement}
+                          <p className="text-[11px] text-neutral-400 italic">
+                            "{task.voiceAnnouncement}"
                           </p>
 
-                          <div className="flex flex-wrap items-center gap-2 pt-1 text-[10px] font-mono">
-                            <span className="flex items-center gap-1 text-cyan-400">
+                          <div className="flex flex-wrap items-center gap-2 pt-1 text-[10px]">
+                            <span className="font-mono text-purple-400 flex items-center gap-1">
                               <Clock size={11} />
-                              {target.toLocaleTimeString([], {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
+                              {target.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
-
-                            <span className="px-2 py-0.5 rounded-full bg-neutral-900 border border-neutral-800 text-neutral-300">
+                            <span className="px-2 py-0.5 rounded-md bg-neutral-900 border border-neutral-800 text-neutral-300">
                               {task.category}
                             </span>
-
                             <span
-                              className={`px-2 py-0.5 rounded-full border ${
+                              className={`px-2 py-0.5 rounded-md font-medium ${
                                 task.priority === 'Urgent'
-                                  ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
-                                  : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                                  ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                  : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                               }`}
                             >
                               {task.priority}
                             </span>
-
                             {task.notified && (
-                              <span className="text-emerald-400 font-semibold">
-                                ✓ Notified
+                              <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                Alert Sent ✓
                               </span>
                             )}
                           </div>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1.5 shrink-0">
                         <button
-                          onClick={() =>
-                            handleTestVoice(task.voiceAnnouncement, task.language)
-                          }
-                          className="p-1.5 rounded-lg text-neutral-400 hover:text-purple-400 hover:bg-neutral-900 transition-colors cursor-pointer"
-                          title="Preview Voice Notification"
+                          onClick={() => triggerVoiceNotification(task)}
+                          className="p-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors cursor-pointer"
+                          title="Test Alarm Voice"
                         >
                           <Play size={13} />
                         </button>
                         <button
                           onClick={() => deleteTask(task.id)}
-                          className="p-1.5 rounded-lg text-neutral-400 hover:text-rose-400 hover:bg-neutral-900 transition-colors cursor-pointer"
-                          title="Delete Reminder"
+                          className="p-1.5 rounded-lg bg-neutral-900 hover:bg-rose-950 text-neutral-400 hover:text-rose-400 transition-colors cursor-pointer"
+                          title="Delete"
                         >
                           <Trash2 size={13} />
                         </button>
