@@ -13,13 +13,17 @@ import {
   Radio,
   Clock,
   Layers,
-  Wand2
+  Wand2,
+  Download,
+  Smartphone
 } from 'lucide-react';
 import { AgentVisualizer } from './components/AgentVisualizer';
 import { VoiceAssistantCore } from './components/VoiceAssistantCore';
 import { WhatsAppAutoReplier } from './components/WhatsAppAutoReplier';
 import { VoiceReminders } from './components/VoiceReminders';
 import { CreativeStudio } from './components/CreativeStudio';
+import { AppInstallModal } from './components/AppInstallModal';
+import { MSLogo } from './components/MSLogo';
 import { soundFX, VoiceRecognitionService, SpeechService } from './utils/audioEngine';
 
 export default function App() {
@@ -32,6 +36,10 @@ export default function App() {
   const [currentTime, setCurrentTime] = useState<string>('');
   const [externalVoicePrompt, setExternalVoicePrompt] = useState<string>('');
 
+  // App install prompt & modal
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState<boolean>(false);
+
   const recognitionServiceRef = useRef<VoiceRecognitionService | null>(null);
 
   // Time updater
@@ -43,6 +51,30 @@ export default function App() {
     const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // Capture PWA install prompt
+  useEffect(() => {
+    const handleBeforeInstall = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+  }, []);
+
+  // Trigger PWA install
+  const handleInstallApp = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const choice = await deferredPrompt.userChoice;
+      if (choice.outcome === 'accepted') {
+        setDeferredPrompt(null);
+        setIsInstallModalOpen(false);
+      }
+    } else {
+      setIsInstallModalOpen(true);
+    }
+  };
 
   // Voice recognition service init
   useEffect(() => {
@@ -104,21 +136,18 @@ export default function App() {
       {/* Top Futuristic Navigation Bar */}
       <header className="sticky top-0 z-40 w-full border-b border-cyan-900/20 bg-neutral-950/80 backdrop-blur-xl px-4 lg:px-8 py-3.5">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          {/* Logo & Brand */}
+          {/* Logo & Brand: MS */}
           <div className="flex items-center gap-3">
-            <div className="relative w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-purple-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-              <Bot size={20} className="text-white" />
-              <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-black animate-pulse" />
-            </div>
+            <MSLogo size={40} />
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="font-bold text-base tracking-tight text-white">NOVA AI</h1>
+                <h1 className="font-extrabold text-base tracking-tight text-white">MS</h1>
                 <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-bold">
-                  AGENT v3.8
+                  AI AGENT v3.8
                 </span>
               </div>
               <p className="text-[11px] text-neutral-400 hidden sm:block">
-                Universal Personal AI Executive Assistant
+                Personal AI Executive Assistant
               </p>
             </div>
           </div>
@@ -137,6 +166,20 @@ export default function App() {
 
           {/* Right Action buttons */}
           <div className="flex items-center gap-2">
+            {/* Install App Button (PC / Mobile) */}
+            <button
+              onClick={() => {
+                soundFX.playClick();
+                setIsInstallModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black shadow-md shadow-cyan-500/20 transition-all cursor-pointer"
+              title="Install MS App on PC or Mobile"
+            >
+              <Smartphone size={14} />
+              <span className="hidden sm:inline">Install App</span>
+            </button>
+
+            {/* Fullscreen Orb */}
             <button
               onClick={() => {
                 soundFX.playClick();
@@ -231,7 +274,7 @@ export default function App() {
                 fullscreen={isFullscreenVisualizer}
                 onToggleFullscreen={() => setIsFullscreenVisualizer(!isFullscreenVisualizer)}
                 spokenText={spokenText}
-                assistantName="NOVA AI"
+                assistantName="MS AI"
               />
 
               {/* Quick agent info */}
@@ -242,7 +285,7 @@ export default function App() {
                 <p className="text-neutral-400 leading-relaxed">
                   • Click <b>"Click to Speak"</b> to communicate via microphone in real-time.
                   <br />• The holographic orb and soundwaves react dynamically to your voice frequencies.
-                  <br />• NOVA delivers spoken answers via studio-grade human audio and typed text.
+                  <br />• MS delivers spoken answers via studio-grade human audio and typed text.
                 </p>
               </div>
             </div>
@@ -282,13 +325,21 @@ export default function App() {
           fullscreen={true}
           onToggleFullscreen={() => setIsFullscreenVisualizer(false)}
           spokenText={spokenText}
-          assistantName="NOVA AI"
+          assistantName="MS AI"
         />
       )}
 
+      {/* App Install Modal (PC & Mobile) */}
+      <AppInstallModal
+        isOpen={isInstallModalOpen}
+        onClose={() => setIsInstallModalOpen(false)}
+        deferredPrompt={deferredPrompt}
+        onInstallClick={handleInstallApp}
+      />
+
       {/* Footer */}
       <footer className="mt-auto border-t border-neutral-900 py-4 px-6 text-center text-xs text-neutral-500">
-        NOVA AI Personal Assistant • Powered by Gemini 3.8
+        MS AI Personal Assistant • Powered by Gemini 3.8
       </footer>
     </div>
   );

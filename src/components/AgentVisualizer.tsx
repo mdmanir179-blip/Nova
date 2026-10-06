@@ -20,7 +20,7 @@ export const AgentVisualizer: React.FC<AgentVisualizerProps> = ({
   fullscreen = false,
   onToggleFullscreen,
   spokenText = '',
-  assistantName = 'NOVA AI',
+  assistantName = 'MS AI',
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);

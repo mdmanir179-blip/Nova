@@ -51,7 +51,7 @@ Return JSON with:
     });
 
     const parsed = safeJsonParse(response.text || '', {
-      name: 'NOVA ' + idea.slice(0, 15),
+      name: 'MS ' + idea.slice(0, 15),
       tagline: 'The future of innovation',
       priceEstimate: '৳4,999 BDT / $49 USD',
       overview: 'An AI-powered product designed for peak convenience.',

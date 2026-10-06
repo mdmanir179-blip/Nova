@@ -1,5 +1,5 @@
 /**
- * Bulletproof Web Audio & Speech Engine for NOVA AI
+ * Bulletproof Web Audio & Speech Engine for MS AI
  * Compatible across Vercel, Chrome, iOS Safari, Android, and Desktop
  */
 

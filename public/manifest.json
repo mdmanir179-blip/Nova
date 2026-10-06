@@ -1,0 +1,27 @@
+{
+  "id": "/",
+  "name": "MS AI Personal Assistant",
+  "short_name": "MS AI",
+  "description": "Your Universal AI Assistant with WhatsApp auto-reply, voice task reminders, and creative multimedia studio.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#05070d",
+  "theme_color": "#05070d",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["productivity", "utilities", "business"]
+}

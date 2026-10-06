@@ -1,7 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 
 /**
- * Resilient AI Engine for NOVA Personal Assistant
+ * Resilient AI Engine for MS Personal Assistant
  * Handles direct questions, problem-solving, calculations,
  * WhatsApp auto-replies, and multilingual comprehension in fluent English.
  */
@@ -39,15 +39,15 @@ export function generateLocalAssistantResponse(userPrompt: string, lang: string 
   // 2. Greetings
   if (p === 'hi' || p === 'hello' || p === 'hey' || p.includes('good morning') || p.includes('good evening') || p.includes('হ্যালো')) {
     return isBengali
-      ? 'নমস্কার বস! আমি নোভা (NOVA), আপনার ব্যক্তিগত এআই অ্যাসিস্ট্যান্ট। আজ আপনাকে কীভাবে সাহায্য করতে পারি?'
-      : 'Hello! I am NOVA, your personal AI assistant. How can I help you today? You can ask me any question, schedule voice reminders, or automate your messages.';
+      ? 'নমস্কার বস! আমি এমএস (MS), আপনার ব্যক্তিগত এআই অ্যাসিস্ট্যান্ট। আজ আপনাকে কীভাবে সাহায্য করতে পারি?'
+      : 'Hello! I am MS, your personal AI assistant. How can I help you today? You can ask me any question, schedule voice reminders, or automate your messages.';
   }
 
   // 3. Identity and capabilities
   if (p.includes('who are you') || p.includes('your name') || p.includes('what can you do') || p.includes('introduce yourself') || p.includes('পরিচয়')) {
     return isBengali
-      ? 'আমার নাম নোভা (NOVA)। আমি আপনার পার্সোনাল এআই অ্যাসিস্ট্যান্ট। আমি ভয়েস দিয়ে কথা বলতে পারি, যেকোনো প্রশ্নের উত্তর দিতে পারি, হোয়াটসঅ্যাপ মেসেজ অটো-রিপ্লাই করতে পারি এবং রিমাইন্ডার মনে করিয়ে দিতে পারি।'
-      : 'I am NOVA, your personal AI executive assistant. I can answer any question, execute complex tasks, automate WhatsApp replies, trigger voice reminders, generate and edit images, create product mockups, and assist you in multiple languages.';
+      ? 'আমার নাম এমএস (MS)। আমি আপনার পার্সোনাল এআই অ্যাসিস্ট্যান্ট। আমি ভয়েস দিয়ে কথা বলতে পারি, যেকোনো প্রশ্নের উত্তর দিতে পারি, হোয়াটসঅ্যাপ মেসেজ অটো-রিপ্লাই করতে পারি এবং রিমাইন্ডার মনে করিয়ে দিতে পারি।'
+      : 'I am MS, your personal AI executive assistant. I can answer any question, execute complex tasks, automate WhatsApp replies, trigger voice reminders, generate and edit images, create product mockups, and assist you in multiple languages.';
   }
 
   // 4. Status / How are you
@@ -100,12 +100,12 @@ export function generateLocalAssistantResponse(userPrompt: string, lang: string 
 
   // 7. WhatsApp and automation queries
   if (p.includes('whatsapp') || p.includes('message') || p.includes('auto reply')) {
-    return 'To automate your WhatsApp messages, head over to the "WhatsApp Auto-Reply" tab. You can scan the QR code with your phone camera, pair via phone number, or click "Connect My WhatsApp". Once active, I will automatically reply to incoming messages based on your custom rules.';
+    return 'To automate your WhatsApp messages, head over to the "WhatsApp Auto-Reply" tab. You can scan the QR code with your phone camera, pair via phone number, or click "Confirm & Connect Device". Once active, MS will automatically reply to incoming messages based on your custom rules.';
   }
 
   // 8. Reminders
   if (p.includes('reminder') || p.includes('task') || p.includes('alarm')) {
-    return 'You can configure voice reminders in the "Voice Reminders" tab. Simply add a task title, specify the time or countdown, and I will announce it out loud in clear human speech when the time arrives!';
+    return 'You can configure voice reminders in the "Voice Reminders" tab. Simply add a task title, specify the time or countdown, and MS will announce it out loud in clear human speech when the time arrives!';
   }
 
   // 9. Creative multimedia
@@ -133,7 +133,7 @@ async function callDirectClientGemini(apiKey: string, message: string, history: 
       },
     });
 
-    const systemInstruction = `You are NOVA, a hyper-intelligent, polite, and articulate Personal AI Assistant.
+    const systemInstruction = `You are MS, a hyper-intelligent, polite, and articulate Personal AI Assistant.
 Always answer EVERY question directly, thoroughly, and accurately in natural, fluent English (or match the user's language if they communicate in Bengali, Hindi, Spanish, French, etc.).
 Give precise answers for facts, science, calculations, coding, writing, and advice.
 Never give evasive or generic non-answers. Keep spoken responses conversational and natural.`;
@@ -173,7 +173,7 @@ export async function sendChatMessage(
   language: string = 'en-US'
 ): Promise<string> {
   const customApiKey = typeof window !== 'undefined'
-    ? localStorage.getItem('nova_gemini_api_key') || (import.meta as any).env?.VITE_GEMINI_API_KEY || ''
+    ? localStorage.getItem('ms_gemini_api_key') || localStorage.getItem('nova_gemini_api_key') || (import.meta as any).env?.VITE_GEMINI_API_KEY || ''
     : '';
 
   // 1. Try server endpoint first
@@ -228,7 +228,7 @@ export async function generateWhatsAppReply(
   userRules: string = ''
 ): Promise<{ replyText: string; tone: string; category: string }> {
   const customApiKey = typeof window !== 'undefined'
-    ? localStorage.getItem('nova_gemini_api_key') || (import.meta as any).env?.VITE_GEMINI_API_KEY || ''
+    ? localStorage.getItem('ms_gemini_api_key') || localStorage.getItem('nova_gemini_api_key') || (import.meta as any).env?.VITE_GEMINI_API_KEY || ''
     : '';
 
   try {

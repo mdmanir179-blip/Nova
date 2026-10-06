@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { soundFX } from '../utils/audioEngine';
 import { generateWhatsAppReply } from '../utils/aiClientEngine';
+import { MSLogo } from './MSLogo';
 
 interface Message {
   id: string;
@@ -41,11 +42,15 @@ export const WhatsAppAutoReplier: React.FC = () => {
   // Connection states
   const [pairingMethod, setPairingMethod] = useState<'qr' | 'code' | 'camera'>('qr');
   const [isConnected, setIsConnected] = useState<boolean>(() => {
-    return typeof window !== 'undefined' ? localStorage.getItem('nova_wa_connected') === 'true' : false;
+    return typeof window !== 'undefined'
+      ? localStorage.getItem('ms_wa_connected') === 'true' || localStorage.getItem('nova_wa_connected') === 'true'
+      : false;
   });
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [phoneNumber, setPhoneNumber] = useState<string>(() => {
-    return typeof window !== 'undefined' ? localStorage.getItem('nova_wa_phone') || '+1 (555) 234-5678' : '+1 (555) 234-5678';
+    return typeof window !== 'undefined'
+      ? localStorage.getItem('ms_wa_phone') || localStorage.getItem('nova_wa_phone') || '+1 (555) 234-5678'
+      : '+1 (555) 234-5678';
   });
   const [pairingCode, setPairingCode] = useState<string>('');
   const [codeExpiresIn, setCodeExpiresIn] = useState<number>(0);
@@ -61,7 +66,7 @@ export const WhatsAppAutoReplier: React.FC = () => {
   // Clean messages list: NO demo data! Loaded from localStorage
   const [messages, setMessages] = useState<Message[]>(() => {
     try {
-      const saved = localStorage.getItem('nova_wa_messages');
+      const saved = localStorage.getItem('ms_wa_messages') || localStorage.getItem('nova_wa_messages');
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -81,7 +86,7 @@ export const WhatsAppAutoReplier: React.FC = () => {
   // Save messages to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem('nova_wa_messages', JSON.stringify(messages));
+      localStorage.setItem('ms_wa_messages', JSON.stringify(messages));
     } catch {
       // ignore
     }
@@ -92,7 +97,7 @@ export const WhatsAppAutoReplier: React.FC = () => {
     try {
       // Direct WhatsApp link that immediately opens WhatsApp when scanned by phone camera
       const pairingToken = Math.random().toString(36).substring(2, 10).toUpperCase();
-      const qrPayload = `https://api.whatsapp.com/send?text=${encodeURIComponent(`NOVA_AI_AGENT_CONNECT_TOKEN_${pairingToken}`)}`;
+      const qrPayload = `https://api.whatsapp.com/send?text=${encodeURIComponent(`MS_AI_AGENT_CONNECT_TOKEN_${pairingToken}`)}`;
 
       const qrUrl = await QRCode.toDataURL(qrPayload, {
         width: 320,
@@ -126,15 +131,15 @@ export const WhatsAppAutoReplier: React.FC = () => {
     }, 1200);
 
     setTimeout(() => {
-      setPairingStepMessage('Syncing message stream with NOVA Agent...');
+      setPairingStepMessage('Syncing message stream with MS Agent...');
     }, 2400);
 
     setTimeout(() => {
       setIsPairingInProgress(false);
       setIsConnected(true);
       setPhoneNumber(finalPhone);
-      localStorage.setItem('nova_wa_connected', 'true');
-      localStorage.setItem('nova_wa_phone', finalPhone);
+      localStorage.setItem('ms_wa_connected', 'true');
+      localStorage.setItem('ms_wa_phone', finalPhone);
       soundFX.playActivateSound();
       setConnectionNotice(`WhatsApp successfully connected (${finalPhone})! Auto-replier is now active.`);
       setTimeout(() => setConnectionNotice(''), 7000);
@@ -143,6 +148,7 @@ export const WhatsAppAutoReplier: React.FC = () => {
 
   const disconnectConnection = () => {
     setIsConnected(false);
+    localStorage.removeItem('ms_wa_connected');
     localStorage.removeItem('nova_wa_connected');
     soundFX.playClick();
   };
@@ -253,6 +259,7 @@ export const WhatsAppAutoReplier: React.FC = () => {
   const clearMessages = () => {
     soundFX.playClick();
     setMessages([]);
+    localStorage.removeItem('ms_wa_messages');
     setActiveMessageId(null);
   };
 
@@ -440,7 +447,7 @@ export const WhatsAppAutoReplier: React.FC = () => {
                     <button
                       onClick={() => startPairingHandshake()}
                       disabled={isPairingInProgress}
-                      className="w-full py-2.5 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black transition-colors flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/20"
+                      className="w-full py-2.5 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-black transition-colors flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/20 cursor-pointer"
                     >
                       <CheckCircle2 size={15} />
                       <span>{isPairingInProgress ? 'Connecting...' : 'Confirm & Connect Device (1-Click)'}</span>
@@ -448,7 +455,7 @@ export const WhatsAppAutoReplier: React.FC = () => {
                   ) : (
                     <button
                       onClick={disconnectConnection}
-                      className="w-full py-2.5 rounded-xl text-xs font-bold bg-neutral-800 hover:bg-rose-500/20 hover:text-rose-400 border border-neutral-700 text-neutral-300 transition-colors flex items-center justify-center gap-1.5"
+                      className="w-full py-2.5 rounded-xl text-xs font-bold bg-neutral-800 hover:bg-rose-500/20 hover:text-rose-400 border border-neutral-700 text-neutral-300 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <span>Disconnect WhatsApp Session</span>
                     </button>
@@ -480,14 +487,14 @@ export const WhatsAppAutoReplier: React.FC = () => {
                   <div className="flex gap-2">
                     <button
                       onClick={handleGeneratePairingCode}
-                      className="flex-1 py-2 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-white border border-neutral-700 transition-colors"
+                      className="flex-1 py-2 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-white border border-neutral-700 transition-colors cursor-pointer"
                     >
                       Generate Code
                     </button>
                     <button
                       onClick={() => startPairingHandshake(phoneNumber)}
                       disabled={isPairingInProgress}
-                      className="flex-1 py-2 rounded-xl text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 text-black transition-colors"
+                      className="flex-1 py-2 rounded-xl text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 text-black transition-colors cursor-pointer"
                     >
                       {isPairingInProgress ? 'Pairing...' : 'Link Device Now'}
                     </button>
@@ -527,7 +534,7 @@ export const WhatsAppAutoReplier: React.FC = () => {
                   {!isCameraActive ? (
                     <button
                       onClick={startCameraScanner}
-                      className="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 text-black transition-colors flex items-center justify-center gap-1.5"
+                      className="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 text-black transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <Camera size={14} />
                       <span>Start Webcam Scanner</span>
@@ -535,14 +542,14 @@ export const WhatsAppAutoReplier: React.FC = () => {
                   ) : (
                     <button
                       onClick={stopCameraScanner}
-                      className="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-white transition-colors"
+                      className="flex-1 py-2.5 rounded-xl text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-white transition-colors cursor-pointer"
                     >
                       Stop Camera
                     </button>
                   )}
                   <button
                     onClick={() => startPairingHandshake()}
-                    className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-cyan-500 hover:bg-cyan-400 text-black transition-colors"
+                    className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-cyan-500 hover:bg-cyan-400 text-black transition-colors cursor-pointer"
                   >
                     Pair Directly
                   </button>
@@ -558,7 +565,7 @@ export const WhatsAppAutoReplier: React.FC = () => {
               Auto-Reply Behavior Rules
             </h4>
             <p className="text-[11px] text-neutral-400">
-              Customize how your AI agent responds when contacts send messages to your WhatsApp:
+              Customize how your MS AI agent responds when contacts send messages to your WhatsApp:
             </p>
             <textarea
               value={userInstructions}
@@ -612,12 +619,12 @@ export const WhatsAppAutoReplier: React.FC = () => {
             <button
               onClick={handleSimulateIncoming}
               disabled={isSimulating || !simText.trim()}
-              className="w-full py-2.5 rounded-xl text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 text-black disabled:opacity-40 transition-colors flex items-center justify-center gap-2 shadow-md shadow-emerald-500/20"
+              className="w-full py-2.5 rounded-xl text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 text-black disabled:opacity-40 transition-colors flex items-center justify-center gap-2 shadow-md shadow-emerald-500/20 cursor-pointer"
             >
               {isSimulating ? (
                 <>
                   <RefreshCw size={14} className="animate-spin" />
-                  <span>NOVA is generating auto-reply...</span>
+                  <span>MS is generating auto-reply...</span>
                 </>
               ) : (
                 <>
@@ -644,7 +651,7 @@ export const WhatsAppAutoReplier: React.FC = () => {
               {messages.length > 0 && (
                 <button
                   onClick={clearMessages}
-                  className="text-xs text-neutral-400 hover:text-rose-400 flex items-center gap-1 transition-colors"
+                  className="text-xs text-neutral-400 hover:text-rose-400 flex items-center gap-1 transition-colors cursor-pointer"
                 >
                   <Trash2 size={13} />
                   Clear All
@@ -659,7 +666,7 @@ export const WhatsAppAutoReplier: React.FC = () => {
                   No WhatsApp messages yet
                 </p>
                 <p className="text-[11px] text-neutral-500">
-                  Link your phone above or type a test message to watch NOVA auto-reply in real time.
+                  Link your phone above or type a test message to watch MS auto-reply in real time.
                 </p>
               </div>
             ) : (
@@ -696,7 +703,7 @@ export const WhatsAppAutoReplier: React.FC = () => {
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
                             <Sparkles size={11} />
-                            NOVA AI Auto-Reply Sent:
+                            MS AI Auto-Reply Sent:
                           </span>
                           {msg.tone && (
                             <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-mono">

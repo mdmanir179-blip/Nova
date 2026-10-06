@@ -71,7 +71,7 @@ app.post('/api/chat', async (req, res) => {
       httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
     }) : ai;
 
-    const systemInstruction = `You are NOVA, an ultra-advanced, hyper-intelligent Personal AI Assistant (like an upgraded JARVIS).
+    const systemInstruction = `You are MS, an ultra-advanced, hyper-intelligent Personal AI Assistant (like an upgraded JARVIS).
 You are working directly for the user as their loyal, sharp, proactive, and polite personal assistant.
 Key capabilities:
 1. Speak and understand ALL languages seamlessly (Bengali / বাংলা, English, Hindi, Urdu, Arabic, Spanish, French, etc.).
@@ -115,8 +115,8 @@ Key capabilities:
 
     if (msg === 'hi' || msg === 'hello' || msg === 'hey' || msg.includes('হ্যালো') || msg.includes('সালাম')) {
       const greeting = isBengali
-        ? 'নমস্কার বস! আমি নোভা (NOVA), আপনার ব্যক্তিগত এআই অ্যাসিস্ট্যান্ট। আজ আপনাকে কীভাবে সাহায্য করতে পারি? যেকোনো প্রশ্ন বা কাজ আমাকে বলতে পারেন।'
-        : 'Hello boss! I am NOVA, your personal AI assistant. How can I help you today? Feel free to ask me anything!';
+        ? 'নমস্কার বস! আমি এমএস (MS), আপনার ব্যক্তিগত এআই অ্যাসিস্ট্যান্ট। আজ আপনাকে কীভাবে সাহায্য করতে পারি? যেকোনো প্রশ্ন বা কাজ আমাকে বলতে পারেন।'
+        : 'Hello boss! I am MS, your personal AI assistant. How can I help you today? Feel free to ask me anything!';
       return res.json({ reply: greeting });
     }
 
@@ -338,7 +338,7 @@ app.post('/api/generate-image', async (req, res) => {
         <circle cx="400" cy="400" r="220" fill="none" stroke="#38bdf8" stroke-width="4" stroke-dasharray="12 12" filter="url(#glow)"/>
         <circle cx="400" cy="400" r="160" fill="rgba(255,255,255,0.06)" stroke="#818cf8" stroke-width="2"/>
         <path d="M 320 400 L 480 400 M 400 320 L 400 480" stroke="#f43f5e" stroke-width="3" opacity="0.6"/>
-        <text x="400" y="380" fill="#ffffff" font-family="system-ui, sans-serif" font-weight="bold" font-size="28" text-anchor="middle">NOVA AI CREATIVE ENGINE</text>
+        <text x="400" y="380" fill="#ffffff" font-family="system-ui, sans-serif" font-weight="bold" font-size="28" text-anchor="middle">MS AI CREATIVE ENGINE</text>
         <text x="400" y="420" fill="#93c5fd" font-family="system-ui, sans-serif" font-size="18" text-anchor="middle">${prompt.slice(0, 45)}...</text>
         <text x="400" y="460" fill="#e2e8f0" font-family="monospace" font-size="14" text-anchor="middle">Resolution: 1024x1024 • ${style}</text>
       </svg>
@@ -347,7 +347,7 @@ app.post('/api/generate-image', async (req, res) => {
     return res.json({
       imageUrl: fallbackSvg,
       prompt: enhancedPrompt,
-      textDesc: 'Visual concept drafted successfully by NOVA Studio.',
+      textDesc: 'Visual concept drafted successfully by MS Studio.',
     });
   } catch (err: any) {
     console.error('Image generation error:', err);
@@ -562,5 +562,5 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 app.listen(port, () => {
-  console.log(`NOVA AI Agent full-stack server running on http://localhost:${port}`);
+  console.log(`MS AI Agent full-stack server running on http://localhost:${port}`);
 });

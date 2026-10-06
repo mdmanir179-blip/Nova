@@ -356,7 +356,7 @@ export const CreativeStudio: React.FC = () => {
                 <div className="mt-2 flex justify-end">
                   <a
                     href={generatedImage}
-                    download="nova-generated-art.png"
+                    download="ms-generated-art.png"
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-neutral-800 hover:bg-neutral-700 text-white transition-colors"
                   >
                     <Download size={13} />
@@ -478,7 +478,7 @@ export const CreativeStudio: React.FC = () => {
                   {customizedResult && (
                     <a
                       href={customizedResult}
-                      download="nova-customized-image.png"
+                      download="ms-customized-image.png"
                       className="px-3 py-2 rounded-xl text-xs bg-neutral-800 hover:bg-neutral-700 text-white flex items-center gap-1"
                     >
                       <Download size={13} />

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { soundFX, SpeechService } from '../utils/audioEngine';
 import { sendChatMessage, ChatMessage } from '../utils/aiClientEngine';
+import { MSLogo } from './MSLogo';
 
 interface VoiceAssistantCoreProps {
   onStatusChange?: (status: 'idle' | 'listening' | 'thinking' | 'speaking') => void;
@@ -43,7 +44,7 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
   // Clean state: NO demo data
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     try {
-      const saved = localStorage.getItem('nova_chat_history');
+      const saved = localStorage.getItem('ms_chat_history') || localStorage.getItem('nova_chat_history');
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -57,7 +58,9 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
   const [voiceTestStatus, setVoiceTestStatus] = useState<string>('');
   const [showKeyModal, setShowKeyModal] = useState<boolean>(false);
   const [customApiKey, setCustomApiKey] = useState<string>(() => {
-    return typeof window !== 'undefined' ? localStorage.getItem('nova_gemini_api_key') || '' : '';
+    return typeof window !== 'undefined'
+      ? localStorage.getItem('ms_gemini_api_key') || localStorage.getItem('nova_gemini_api_key') || ''
+      : '';
   });
   const [keySavedMessage, setKeySavedMessage] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -65,7 +68,7 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
   // Sync chat to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem('nova_chat_history', JSON.stringify(messages));
+      localStorage.setItem('ms_chat_history', JSON.stringify(messages));
     } catch {
       // ignore
     }
@@ -213,7 +216,7 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
     soundFX.playActivateSound();
     setVoiceTestStatus('Testing Voice...');
 
-    const testPhrase = 'Hello! I am NOVA, your personal AI assistant. Real voice audio is working perfectly.';
+    const testPhrase = 'Hello! I am MS, your personal AI assistant. Real voice audio is working perfectly.';
 
     if (voiceMode === 'human') {
       await SpeechService.speakHumanVoice(testPhrase, {
@@ -236,7 +239,7 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
   };
 
   const saveCustomApiKey = () => {
-    localStorage.setItem('nova_gemini_api_key', customApiKey.trim());
+    localStorage.setItem('ms_gemini_api_key', customApiKey.trim());
     setKeySavedMessage('API Key saved successfully!');
     setTimeout(() => {
       setKeySavedMessage('');
@@ -247,6 +250,7 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
   const clearChat = () => {
     soundFX.playClick();
     setMessages([]);
+    localStorage.removeItem('ms_chat_history');
     localStorage.removeItem('nova_chat_history');
     SpeechService.stop();
     onStatusChange?.('idle');
@@ -425,9 +429,9 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
       <div className="p-4 rounded-2xl border border-neutral-800/80 bg-neutral-950/60 backdrop-blur-md min-h-64 max-h-96 overflow-y-auto space-y-3.5">
         {messages.length === 0 ? (
           <div className="py-12 px-4 text-center text-neutral-500 space-y-2">
-            <Bot size={32} className="mx-auto text-cyan-500/40 animate-pulse" />
+            <MSLogo size={42} className="mx-auto" />
             <p className="text-xs text-neutral-300 font-medium">
-              NOVA Personal Assistant is online and listening.
+              MS Personal Assistant is online and listening.
             </p>
             <p className="text-[11px] text-neutral-500">
               Type or speak any question (e.g. "What is the capital of France?", "Solve 125 * 8", "Help me draft an email").
@@ -442,8 +446,8 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
               }`}
             >
               {msg.role === 'assistant' && (
-                <div className="w-7 h-7 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0 mt-0.5">
-                  <Bot size={15} />
+                <div className="shrink-0 mt-0.5">
+                  <MSLogo size={28} showGlow={false} />
                 </div>
               )}
 
@@ -486,12 +490,12 @@ export const VoiceAssistantCore: React.FC<VoiceAssistantCoreProps> = ({
 
         {isProcessing && (
           <div className="flex gap-3 text-xs justify-start items-center">
-            <div className="w-7 h-7 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
-              <Bot size={15} />
+            <div className="shrink-0">
+              <MSLogo size={28} showGlow={false} />
             </div>
             <div className="p-3 rounded-2xl bg-neutral-900 border border-neutral-800 text-neutral-400 flex items-center gap-2">
               <Loader2 size={14} className="animate-spin text-cyan-400" />
-              <span>NOVA is thinking and composing reply...</span>
+              <span>MS is thinking and composing reply...</span>
             </div>
           </div>
         )}

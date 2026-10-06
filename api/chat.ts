@@ -52,7 +52,7 @@ export default async function handler(req: any, res: any) {
           },
         });
 
-        const systemInstruction = `You are NOVA, an ultra-advanced Personal AI Assistant.
+        const systemInstruction = `You are MS, an ultra-advanced Personal AI Assistant.
 Answer EVERY question directly, thoroughly, and accurately.
 If asked in Bengali or Banglish, answer in fluent, respectful Bengali addressing the user as 'বস' or 'Sir'.
 If asked in English, answer in articulate English.
@@ -95,8 +95,8 @@ Never give evasive or generic non-answers.`;
     // 1. Greetings
     if (q === 'hi' || q === 'hello' || q === 'hey' || q.includes('হ্যালো') || q.includes('সালাম') || q.includes('নমস্কার')) {
       const greeting = isBengali
-        ? 'নমস্কার বস! আমি নোভা (NOVA), আপনার ব্যক্তিগত এআই অ্যাসিস্ট্যান্ট। আজ আপনাকে কীভাবে সাহায্য করতে পারি? যেকোনো প্রশ্ন বা কাজ আমাকে বলতে পারেন।'
-        : 'Hello boss! I am NOVA, your personal AI assistant. How can I help you today? Feel free to ask me anything!';
+        ? 'নমস্কার বস! আমি এমএস (MS), আপনার ব্যক্তিগত এআই অ্যাসিস্ট্যান্ট। আজ আপনাকে কীভাবে সাহায্য করতে পারি? যেকোনো প্রশ্ন বা কাজ আমাকে বলতে পারেন।'
+        : 'Hello boss! I am MS, your personal AI assistant. How can I help you today? Feel free to ask me anything!';
       return res.status(200).json({ reply: greeting });
     }
 
@@ -149,8 +149,8 @@ Never give evasive or generic non-answers.`;
     if (q.includes('who are you') || q.includes('your name') || q.includes('what can you do') || q.includes('কে তুমি')) {
       return res.status(200).json({
         reply: isBengali
-          ? 'আমার নাম নোভা (NOVA)। আমি আপনার ইউনিভার্সাল এআই পার্সোনাল অ্যাসিস্ট্যান্ট।'
-          : 'My name is NOVA. I am your personal AI executive assistant. I can answer complex questions, automate WhatsApp replies, vocalize task reminders, and generate creative media.',
+          ? 'আমার নাম এমএস (MS)। আমি আপনার ইউনিভার্সাল এআই পার্সোনাল অ্যাসিস্ট্যান্ট।'
+          : 'My name is MS. I am your personal AI executive assistant. I can answer complex questions, automate WhatsApp replies, vocalize task reminders, and generate creative media.',
       });
     }
 

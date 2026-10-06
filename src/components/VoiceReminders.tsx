@@ -30,7 +30,7 @@ export const VoiceReminders: React.FC = () => {
   // Clean tasks state: NO demo data! Loaded from localStorage
   const [tasks, setTasks] = useState<TaskReminder[]>(() => {
     try {
-      const saved = localStorage.getItem('nova_user_tasks');
+      const saved = localStorage.getItem('ms_user_tasks') || localStorage.getItem('nova_user_tasks');
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -48,7 +48,7 @@ export const VoiceReminders: React.FC = () => {
   // Sync to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem('nova_user_tasks', JSON.stringify(tasks));
+      localStorage.setItem('ms_user_tasks', JSON.stringify(tasks));
     } catch {
       // ignore
     }
@@ -141,6 +141,7 @@ export const VoiceReminders: React.FC = () => {
   const clearAllTasks = () => {
     soundFX.playClick();
     setTasks([]);
+    localStorage.removeItem('ms_user_tasks');
     localStorage.removeItem('nova_user_tasks');
   };
 
@@ -163,7 +164,7 @@ export const VoiceReminders: React.FC = () => {
               SpeechService.stop();
               setActiveVoiceAlert(null);
             }}
-            className="px-4 py-1.5 rounded-xl bg-black/40 hover:bg-black/60 text-xs font-semibold backdrop-blur-md"
+            className="px-4 py-1.5 rounded-xl bg-black/40 hover:bg-black/60 text-xs font-semibold backdrop-blur-md cursor-pointer"
           >
             Dismiss
           </button>
@@ -179,7 +180,7 @@ export const VoiceReminders: React.FC = () => {
           <div>
             <h3 className="font-bold text-lg text-white">Voice Task Reminders</h3>
             <p className="text-xs text-neutral-400">
-              Schedule your daily tasks and meetings. NOVA will vocalize reminders out loud when each deadline arrives.
+              Schedule your daily tasks and meetings. MS will vocalize reminders out loud when each deadline arrives.
             </p>
           </div>
         </div>
@@ -187,7 +188,7 @@ export const VoiceReminders: React.FC = () => {
         {tasks.length > 0 && (
           <button
             onClick={clearAllTasks}
-            className="text-xs text-neutral-400 hover:text-rose-400 flex items-center gap-1 transition-colors self-start sm:self-auto"
+            className="text-xs text-neutral-400 hover:text-rose-400 flex items-center gap-1 transition-colors self-start sm:self-auto cursor-pointer"
           >
             <Trash2 size={13} />
             <span>Clear All</span>
@@ -218,7 +219,7 @@ export const VoiceReminders: React.FC = () => {
 
             <div>
               <label className="text-xs text-neutral-400 block mb-1">
-                Voice Announcement (What NOVA should speak out loud)
+                Voice Announcement (What MS should speak out loud)
               </label>
               <textarea
                 value={newAnnouncement}
@@ -243,7 +244,7 @@ export const VoiceReminders: React.FC = () => {
                     key={item.val}
                     type="button"
                     onClick={() => setNewMinutesOffset(item.val)}
-                    className={`py-2 rounded-xl font-medium transition-colors border ${
+                    className={`py-2 rounded-xl font-medium transition-colors border cursor-pointer ${
                       newMinutesOffset === item.val
                         ? 'bg-purple-500 text-white border-purple-500 font-bold'
                         : 'bg-neutral-950 text-neutral-300 border-neutral-800 hover:border-neutral-700'
@@ -302,7 +303,7 @@ export const VoiceReminders: React.FC = () => {
 
             <button
               type="submit"
-              className="w-full py-2.5 rounded-xl text-xs font-bold bg-purple-500 hover:bg-purple-400 text-white transition-colors flex items-center justify-center gap-2 shadow-md shadow-purple-500/20"
+              className="w-full py-2.5 rounded-xl text-xs font-bold bg-purple-500 hover:bg-purple-400 text-white transition-colors flex items-center justify-center gap-2 shadow-md shadow-purple-500/20 cursor-pointer"
             >
               <Clock size={15} />
               <span>Set Voice Reminder</span>
@@ -329,7 +330,7 @@ export const VoiceReminders: React.FC = () => {
                 No reminders scheduled yet
               </p>
               <p className="text-[11px] text-neutral-500">
-                Create a reminder on the left and NOVA will vocalize it when the time arrives.
+                Create a reminder on the left and MS will vocalize it when the time arrives.
               </p>
             </div>
           ) : (
@@ -353,7 +354,7 @@ export const VoiceReminders: React.FC = () => {
                       <div className="flex items-start gap-3">
                         <button
                           onClick={() => toggleTaskCompleted(task.id)}
-                          className={`mt-0.5 w-5 h-5 rounded-lg flex items-center justify-center transition-colors border ${
+                          className={`mt-0.5 w-5 h-5 rounded-lg flex items-center justify-center transition-colors border cursor-pointer ${
                             task.completed
                               ? 'bg-emerald-500 border-emerald-500 text-black'
                               : 'border-neutral-700 hover:border-purple-400'
@@ -414,14 +415,14 @@ export const VoiceReminders: React.FC = () => {
                           onClick={() =>
                             handleTestVoice(task.voiceAnnouncement, task.language)
                           }
-                          className="p-1.5 rounded-lg text-neutral-400 hover:text-purple-400 hover:bg-neutral-900 transition-colors"
+                          className="p-1.5 rounded-lg text-neutral-400 hover:text-purple-400 hover:bg-neutral-900 transition-colors cursor-pointer"
                           title="Preview Voice Notification"
                         >
                           <Play size={13} />
                         </button>
                         <button
                           onClick={() => deleteTask(task.id)}
-                          className="p-1.5 rounded-lg text-neutral-400 hover:text-rose-400 hover:bg-neutral-900 transition-colors"
+                          className="p-1.5 rounded-lg text-neutral-400 hover:text-rose-400 hover:bg-neutral-900 transition-colors cursor-pointer"
                           title="Delete Reminder"
                         >
                           <Trash2 size={13} />

@@ -56,7 +56,7 @@ export default async function handler(req: any, res: any) {
       <svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800">
         <rect width="100%" height="100%" fill="#090d16"/>
         <circle cx="400" cy="400" r="200" fill="none" stroke="#38bdf8" stroke-width="4"/>
-        <text x="400" y="390" fill="#ffffff" font-family="sans-serif" font-weight="bold" font-size="28" text-anchor="middle">NOVA AI CREATIVE</text>
+        <text x="400" y="390" fill="#ffffff" font-family="sans-serif" font-weight="bold" font-size="28" text-anchor="middle">MS AI CREATIVE</text>
         <text x="400" y="430" fill="#38bdf8" font-family="sans-serif" font-size="16" text-anchor="middle">${prompt.slice(0, 40)}...</text>
       </svg>
     `)}`;
